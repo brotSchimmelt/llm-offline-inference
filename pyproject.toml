@@ -1,0 +1,10 @@
+[project]
+name = "flex-infer"
+version = "0.1"
+# dependencies = []
+
+[tool.ruff]
+select = ["E", "F"]
+
+# Ignore `F401` violations in any `__init__.py`
+per-file-ignores = {"__init__.py" = ["F401"]}
