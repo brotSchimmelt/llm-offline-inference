@@ -162,10 +162,11 @@ cython_debug/
 # macOS
 .DS_Store
 
-# test folder
-tmp/
+# vsCode
+.vscode/
 
 # local test files
 _test*.py
 _*.sh
 _*.txt
+
