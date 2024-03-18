@@ -93,6 +93,7 @@ class VLLM(LLMInterface):
             quantization=self._settings.quant,
         )
 
+    @get_time
     def generate(
         self,
         prompts: Union[List[str], str],
