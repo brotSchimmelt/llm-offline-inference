@@ -1,37 +1,37 @@
 PROMPT_TEMPLATES = {
     "no_style": {
-        "format": "{}",
-        "format_system": "{system_prompt} {prompt}",
-        "end_of_seq": "",
+        "prompt_template": "{}",
+        "system_prompt_template": "{system_prompt} {prompt}",
+        "eos_token": "",
     },
     "llama2": {
-        "format": "<s>[INST] {} [/INST]",
-        "format_system": "<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{prompt} [/INST]",  # noqa: E501
-        "end_of_seq": "</s>",
+        "prompt_template": "<s>[INST] {} [/INST]",
+        "system_prompt_template": "<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{prompt} [/INST]",  # noqa: E501
+        "eos_token": "</s>",
     },
     "zephyr": {
-        "format": "<|user|>\n{}</s>\n<|assistant|>\n",
-        "format_system": "<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n",  # noqa: E501
-        "end_of_seq": "</s>",
+        "prompt_template": "<|user|>\n{}</s>\n<|assistant|>\n",
+        "system_prompt_template": "<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n",  # noqa: E501
+        "eos_token": "</s>",
     },
     "chatml": {
-        "format": "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant",
-        "format_system": "<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant",  # noqa: E501
-        "end_of_seq": "<|im_end|>",
+        "prompt_template": "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant",
+        "system_prompt_template": "<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant",  # noqa: E501
+        "eos_token": "<|im_end|>",
     },
     "alpaca": {
-        "format": "### Instruction:\n{}\n\n### Response:\n",
-        "format_system": "### Instruction:\n{system_prompt}\n\n### Input:\n{prompt}\n\n### Response:\n{prompt}",  # noqa: E501
-        "end_of_seq": "",
+        "prompt_template": "### Instruction:\n{}\n\n### Response:\n",
+        "system_prompt_template": "### Instruction:\n{system_prompt}\n\n### Input:\n{prompt}\n\n### Response:\n{prompt}",  # noqa: E501
+        "eos_token": "",
     },
     "alpaca_human": {
-        "format": "### HUMAN:\n{}\n\n### RESPONSE:\n",
-        "format_system": "### HUMAN:\n{system_prompt}\n\n### INPUT:\n{prompt}\n\n### RESPONSE:\n{prompt}",  # noqa: E501
-        "end_of_seq": "",
+        "prompt_template": "### HUMAN:\n{}\n\n### RESPONSE:\n",
+        "system_prompt_template": "### HUMAN:\n{system_prompt}\n\n### INPUT:\n{prompt}\n\n### RESPONSE:\n{prompt}",  # noqa: E501
+        "eos_token": "",
     },
     "vicuna": {
-        "format": "USER: {} ASSISTANT:",
-        "format_system": "{system_prompt} USER: {prompt} ASSISTANT:",
-        "end_of_seq": "",
+        "prompt_template": "USER: {} ASSISTANT:",
+        "system_prompt_template": "{system_prompt} USER: {prompt} ASSISTANT:",
+        "eos_token": "",
     },
 }
