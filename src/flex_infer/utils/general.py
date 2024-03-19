@@ -16,14 +16,16 @@ def get_time(func: Callable) -> Callable:
 
     @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
-        start_time: float = perf_counter()
-        result: Any = func(*args, **kwargs)
-        end_time: float = perf_counter()
+        start_time = perf_counter()
+        result = func(*args, **kwargs)
+        end_time = perf_counter()
 
         elapsed_time = end_time - start_time
         minutes, seconds = divmod(elapsed_time, 60)
 
-        print(f"'{func.__name__}()' took {int(minutes)}:{seconds:.1f} min")
+        formatted_seconds = str(int(seconds)).zfill(2)
+
+        print(f"'{func.__name__}()' took {int(minutes)}:{formatted_seconds} min")
         return result
 
     return wrapper
