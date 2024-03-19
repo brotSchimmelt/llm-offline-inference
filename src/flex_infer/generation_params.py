@@ -200,4 +200,23 @@ class GenerationParams:
 
     def get_transformers_params(self):
         """Returns the parameters in a format that is compatible to transformers."""
-        pass
+        transformers_params = {
+            "max_new_tokens": self.max_tokens,
+            "early_stopping": self.early_stopping,
+            "temperature": self.temperature,
+            "repetition_penalty": self.repetition_penalty,
+            "num_return_sequences": self.n,
+            "return_full_text": False,
+            "do_sample": True,
+        }
+
+        # temp = 0 means greedy sampling -> do_sample = False
+        if transformers_params["temperature"] == 0:
+            transformers_params["do_sample"] = False
+
+        if self.top_k != -1:
+            transformers_params["top_k"] = self.top_k
+        if self.top_p != 1.0:
+            transformers_params["top_p"] = self.top_p
+
+        return transformers_params

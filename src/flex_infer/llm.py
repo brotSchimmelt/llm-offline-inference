@@ -1,12 +1,17 @@
 import logging
 import re
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
+import transformers
 import vllm
 from icecream import ic
+from outlines.integrations.transformers import (
+    JSONPrefixAllowedTokens,
+    RegexPrefixAllowedTokens,
+)
 from outlines.integrations.vllm import JSONLogitsProcessor, RegexLogitsProcessor
 from pydantic import BaseModel
 from vllm.outputs import RequestOutput
@@ -40,9 +45,10 @@ class ModelSettings:
     name: str
     model_path: str
     prompt_format: str
-    num_gpus: int = 1
-    seed: int = field(default_factory=lambda: RANDOM_SEED)
-    quant: Optional[str] = None
+    num_gpus: int
+    seed: int
+    quant: str
+    trust_remote_code: bool
 
     def __post_init__(self) -> None:
         if not Path(self.model_path).exists():
@@ -57,21 +63,11 @@ class ModelSettings:
 
 
 class LLM(ABC):
-    def __init__(
-        self,
-        name: str,
-        model_path: str,
-        prompt_format: str,
-        num_gpus: int = 1,
-        seed: int = RANDOM_SEED,
-        quant: str = None,
-    ) -> None:
-        self._type = None
+    def __init__(self, **kwargs) -> None:
+        self._type, self.model = None, None
 
         # load and validate model settings
-        self._settings = ModelSettings(
-            name, model_path, prompt_format, num_gpus, seed, quant
-        )
+        self._settings = ModelSettings(**kwargs)
         ic(self._settings)
         logger.info(f"Loaded model settings: {self._settings}")
 
@@ -121,8 +117,17 @@ class VLLM(LLM):
         num_gpus: int = 1,
         seed: int = RANDOM_SEED,
         quant: str = None,
+        trust_remote_code: bool = False,
     ) -> None:
-        super().__init__(name, model_path, prompt_format, num_gpus, seed, quant)
+        super().__init__(
+            name=name,
+            model_path=model_path,
+            prompt_format=prompt_format,
+            num_gpus=num_gpus,
+            seed=seed,
+            quant=quant,
+            trust_remote_code=trust_remote_code,
+        )
 
         self._type = self.__class__.__name__
 
@@ -132,6 +137,7 @@ class VLLM(LLM):
             seed=self._settings.seed,
             tensor_parallel_size=self._settings.num_gpus,
             quantization=self._settings.quant,
+            trust_remote_code=self._settings.trust_remote_code,
         )
 
     @get_time
@@ -325,4 +331,153 @@ class TransformersLLM(LLM):
     of Transformers models including support for guided generation.
     """
 
-    pass
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        prompt_format: str,
+        num_gpus: int = 1,
+        seed: int = RANDOM_SEED,
+        quant: str = None,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(
+            name=name,
+            model_path=model_path,
+            prompt_format=prompt_format,
+            num_gpus=num_gpus,
+            seed=seed,
+            quant=quant,
+            trust_remote_code=trust_remote_code,
+        )
+
+        self._type = self.__class__.__name__
+
+        # get model settings
+        self.model_kwargs = {
+            "model": self._settings.model_path,
+            "trust_remote_code": self._settings.trust_remote_code,
+        }
+
+        if self._settings.num_gpus == 1:
+            self.model_kwargs["device"] = 0
+        else:
+            self.model_kwargs["device_map"] = "auto"
+
+        # load the model
+        self.model = transformers.pipeline("text-generation", **self.model_kwargs)
+
+    @get_time
+    def generate(
+        self,
+        prompts: Union[List[str], str],
+        generation_params: GenerationParams,
+        return_string: bool = True,
+        json_schema: BaseModel = None,
+        choices: List[str] = None,
+        use_tqdm: bool = True,
+    ) -> Union[List[str], List[List[Dict[str, str]]]]:
+        """
+        Generates text based on the given prompts and generation parameters, with
+        optional support for guided generation using either a JSON schema or regular
+        expression choices.
+
+        Args:
+            prompts (Union[List[str], str]): The prompt(s) to generate text for.
+            generation_params (GenerationParams): Parameters to control the generation
+                behavior.
+            return_string (bool, optional): The format of the generated output (string
+                or vllm.RequestOutput). Defaults to True.
+            json_schema (BaseModel, optional): A Pydantic model representing a JSON
+                schema for guided generation. Defaults to None.
+            choices (List[str], optional): A list of strings to guide the generation via
+                regular expressions. Defaults to None.
+            use_tqdm (bool, optional): Whether to display a progress bar during
+                generation. Defaults to True.
+
+        Raises:
+            ValueError: If both json_schema and choices are provided.
+
+        Returns:
+            Union[List[str], List[List[Dict[str, str]]]]: The generated text or
+                structured output based on return_type.
+        """
+        logger.info(f"Generation arguments: {locals()}")
+        # validate inputs
+        if json_schema and choices:
+            raise ValueError("Cannot use guided generation for both JSON and RegEx.")
+
+        # get generation params
+        generation_params = self._get_generation_params(generation_params)
+        generation_params["pad_token_id"] = self.model.tokenizer.eos_token_id
+        ic(generation_params)
+
+        # format prompts with the model's template
+        prompts = self.format_prompts(prompts)
+        ic(prompts[0])
+        logger.info(f"First formatted prompt: {prompts[0]}")
+
+        # create logits processors for guided generation
+        if json_schema or choices:
+            generation_params = self._configure_guided_generation(
+                generation_params, json_schema, choices
+            )
+
+        outputs = self.model(prompts, **generation_params)
+
+        if return_string:
+            return [o[0]["generated_text"] for o in outputs]
+        return outputs
+
+    def _get_generation_params(
+        self, generation_params: GenerationParams
+    ) -> Dict[str, Any]:
+        """
+        Converts a GenerationParams object to a dictionary of parameters compatible with
+        the Transformers library.
+
+        Args:
+            generation_params (GenerationParams): Parameters to control the generation
+                behavior.
+
+        Returns:
+            Dict[str, Any]: The converted generation parameters.
+        """
+        return generation_params.get_transformers_params()
+
+    def _configure_guided_generation(
+        self,
+        generation_params: Dict[str, Any],
+        json_schema: BaseModel,
+        choices: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Configures the generation parameters for guided generation based on a JSON
+        schema or a list of choices.
+
+        Args:
+            generation_params (Dict[str, Any]): The original generation parameters.
+            json_schema (BaseModel, optional): A Pydantic model representing a JSON
+                schema for guided generation. Defaults to None.
+            choices (List[str], optional): A list of strings to guide the generation via
+                regular expressions. Defaults to None.
+
+        Returns:
+            Dict[str, Any]: Updated generation parameters with logits processors for
+                guided generation.
+        """
+        if json_schema:
+            prefix_allowed_tokens_fn = JSONPrefixAllowedTokens(
+                schema=json_schema,
+                tokenizer_or_pipe=self.model,
+                whitespace_pattern=r" ?",
+            )
+        else:
+            choices_regex = "(" + "|".join([re.escape(c) for c in choices]) + ")"
+            prefix_allowed_tokens_fn = RegexPrefixAllowedTokens(
+                regex_string=choices_regex, tokenizer_or_pipe=self.model
+            )
+
+        generation_params["prefix_allowed_tokens_fn"] = prefix_allowed_tokens_fn
+        logger.info("Configured generation parameters for guided generation.")
+        return generation_params
