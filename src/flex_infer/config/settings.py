@@ -1,8 +1,8 @@
 LOGGING = {
-    "level": "INFO",
+    "logger_name": "flex_infer",
 }
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 RANDOM_SEED = 42
 

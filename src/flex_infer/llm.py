@@ -1,3 +1,4 @@
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
@@ -12,6 +13,7 @@ from vllm.outputs import RequestOutput
 
 from .config import (
     DEBUG_MODE,
+    LOGGING,
     PROMPT_FORMATS,
     RANDOM_SEED,
     SUPPORTED_QUANTIZATION_MODES,
@@ -19,8 +21,11 @@ from .config import (
 from .generation_params import GenerationParams
 from .utils import get_time
 
+##### SETUP LOGGING #####
 if not DEBUG_MODE:
     ic.disable()
+logger = logging.getLogger(LOGGING["logger_name"])
+##### SETUP LOGGING #####
 
 
 @dataclass
@@ -67,11 +72,14 @@ class LLM(ABC):
         seed: int = RANDOM_SEED,
         quant: str = None,
     ) -> None:
+        self._type = None
+
         # load and validate model settings
         self._settings = ModelSettings(
             name, model_path, prompt_format, num_gpus, seed, quant
         )
         ic(self._settings)
+        logger.info(f"Loaded model settings: {self._settings}")
 
         # load prompt settings
         self._prompt_settings = PROMPT_FORMATS[self._settings.prompt_format]
@@ -79,6 +87,7 @@ class LLM(ABC):
         self.system_prompt_template = self._prompt_settings["system_prompt_template"]
         self.eos_token = self._prompt_settings["eos_token"]
         ic(self._prompt_settings)
+        logger.info(f"Loaded prompt settings: {self._prompt_settings}")
 
     @abstractmethod
     def generate(self) -> Union[List[str], List[Any]]:
@@ -93,14 +102,13 @@ class LLM(ABC):
 
     def get_model_settings(self) -> Dict[str, Any]:
         """Getter for the model settings."""
-        ic(asdict(self._settings))
         return asdict(self._settings)
 
     def __str__(self) -> str:
         settings_str = "\n".join(
             [f"{k}: {v}" for k, v in self.get_model_settings().items()]
         )
-        return f"LLM: {self._settings.name}\n{settings_str}"
+        return f"{self._type} Instance\n{settings_str}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -121,6 +129,8 @@ class VLLM(LLM):
         quant: str = None,
     ) -> None:
         super().__init__(name, model_path, prompt_format, num_gpus, seed, quant)
+
+        self._type = self.__class__.__name__
 
         # load the model
         self.model = vllm.LLM(
@@ -169,6 +179,7 @@ class VLLM(LLM):
             Union[List[str], List[RequestOutput]]: The generated text or structured
                 output based on return_type.
         """
+        logger.info(f"Generation arguments: {locals()}")
         # validate inputs
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
@@ -183,6 +194,7 @@ class VLLM(LLM):
         # format prompts with the model's template
         prompts = self.format_prompts(prompts)
         ic(prompts[0])
+        logger.info(f"First formatted prompt: {prompts[0]}")
 
         # create logits processors for guided generation
         if json_schema or choices:
@@ -199,6 +211,9 @@ class VLLM(LLM):
             outputs = self._dynamically_batched_generation(
                 prompts, sampling_params, use_tqdm
             )
+
+        logger.info(f"Generated {len(outputs)} outputs.")
+        logger.info(f"First output: {outputs[0].outputs[0].text}")
 
         # convert outputs to string if necessary
         if return_string:
@@ -240,6 +255,8 @@ class VLLM(LLM):
         Returns:
             List[RequestOutput]: A list of generated responses.
         """
+        logger.info("Generation with manual batching.")
+        logger.info(f"Manually batching generation with batch size: {batch_size}")
         results = []
         for i in range(0, len(prompts), batch_size):
             current_prompts = prompts[i : i + batch_size]
@@ -267,6 +284,7 @@ class VLLM(LLM):
         Returns:
             List[RequestOutput]: A list of generated responses.
         """
+        logger.info("Generation with dynamic batching.")
         return self.model.generate(
             prompts=prompts, sampling_params=sampling_params, use_tqdm=use_tqdm
         )
@@ -304,6 +322,7 @@ class VLLM(LLM):
             )
 
         sampling_params.logits_processors = [logits_processor]
+        logger.info("Configured sampling parameters for guided generation.")
         return sampling_params
 
 
