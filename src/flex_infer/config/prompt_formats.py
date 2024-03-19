@@ -1,4 +1,4 @@
-PROMPT_TEMPLATES = {
+PROMPT_FORMATS = {
     "no_style": {
         "prompt_template": "{}",
         "system_prompt_template": "{system_prompt} {prompt}",
