@@ -49,7 +49,7 @@ class ModelSettings:
         self.prompt_template = PROMPT_TEMPLATES[self.prompt_template_name]
 
 
-class LLMInterface(ABC):
+class LLM(ABC):
     def __init__(self, model_settings: Dict[str, Any]) -> None:
         self._settings = ModelSettings(**model_settings)
         self.prompt_template = self._settings.prompt_template["format"]
@@ -82,8 +82,8 @@ class LLMInterface(ABC):
         return self.__str__()
 
 
-class VLLM(LLMInterface):
-    """This class extends LLMInterface, adapting it to utilize specific functionalities
+class VLLM(LLM):
+    """This class extends LLM, adapting it to utilize specific functionalities
     of vLLM models including support for dynamically batched and guided generation.
     """
 
@@ -247,8 +247,8 @@ class VLLM(LLMInterface):
         return sampling_params
 
 
-class TransformersLLM(LLMInterface):
-    """This class extends LLMInterface, adapting it to utilize specific functionalities
+class TransformersLLM(LLM):
+    """This class extends LLM, adapting it to utilize specific functionalities
     of Transformers models including support for guided generation.
     """
 
