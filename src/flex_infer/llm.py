@@ -20,7 +20,7 @@ class ModelSettings:
     Attributes:
         name (str): The name of the model.
         path (str): Filesystem path to the model.
-        prompt_template (str): Template identifier for model prompts.
+        prompt_template_name (str): Template identifier for model prompts.
         num_gpus (int): Number of GPUs allocated for the model. Defaults to 1.
         seed (int): Seed value for random number generation. Defaults to a
         module-level `RANDOM_SEED`.
@@ -30,7 +30,7 @@ class ModelSettings:
 
     name: str
     path: str
-    prompt_template: str
+    prompt_template_name: str
     num_gpus: int = 1
     seed: int = field(default_factory=lambda: RANDOM_SEED)
     quant: Optional[str] = None
@@ -39,19 +39,23 @@ class ModelSettings:
         if not Path(self.path).exists():
             raise ValueError(f"Invalid path: {self.path}")
 
-        if self.prompt_template not in PROMPT_TEMPLATES:
+        if self.prompt_template_name not in PROMPT_TEMPLATES:
             raise ValueError(f"Invalid prompt template: {self.prompt_template}")
 
         if self.quant is not None:
             if self.quant not in SUPPORTED_QUANTIZATION_MODES:
                 raise ValueError(f"Invalid quantization mode: {self.quant}")
 
+        self.prompt_template = PROMPT_TEMPLATES[self.prompt_template_name]
+
 
 class LLMInterface(ABC):
     def __init__(self, model_settings: Dict[str, Any]) -> None:
         self._settings = ModelSettings(**model_settings)
-        self.prompt_template = self.settings.prompt_template
-        self.name = self.settings.name
+        self.prompt_template = self._settings.prompt_template["format"]
+        self.eos_token = self._settings.prompt_template["end_of_seq"]
+        self.system_prompt_template = self._settings.prompt_template["format_system"]
+        self.name = self._settings.name
 
     @abstractmethod
     def generate(self) -> Union[List[str], List[Any]]:
@@ -72,7 +76,7 @@ class LLMInterface(ABC):
         settings_str = "\n".join(
             [f"{k}: {v}" for k, v in self.get_model_settings().items()]
         )
-        return f"LLM: {self._name}\n{settings_str}"
+        return f"LLM: {self.name}\n{settings_str}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -85,7 +89,6 @@ class VLLM(LLMInterface):
 
     def __init__(self, model_settings: Dict[str, Any]) -> None:
         super().__init__(model_settings)
-        self._type = "vllm"
         self.model = vllm.LLM(
             model=self._settings.path,
             seed=self._settings.seed,
@@ -98,7 +101,7 @@ class VLLM(LLMInterface):
         self,
         prompts: Union[List[str], str],
         sampling_params: vllm.SamplingParams,
-        return_type: str = "text",
+        return_string: bool = True,
         json_schema: BaseModel = None,
         choices: List[str] = None,
         batch_size: int = 0,
@@ -113,8 +116,8 @@ class VLLM(LLMInterface):
             prompts (Union[List[str], str]): The prompt(s) to generate text for.
                 sampling_params (vllm.SamplingParams): Parameters to control the
                 sampling behavior.
-            return_type (str, optional): The format of the generated output ('text' or
-                other supported types). Defaults to 'text'.
+            return_string (bool, optional): The format of the generated output (string
+                or vllm.RequestOutput). Defaults to True.
             json_schema (BaseModel, optional): A Pydantic model representing a JSON
                 schema for guided generation. Defaults to None.
             choices (List[str], optional): A list of strings to guide the generation via
@@ -158,8 +161,8 @@ class VLLM(LLMInterface):
                 prompts, sampling_params, use_tqdm
             )
 
-        # convert outputs to text if necessary
-        if return_type == "text":
+        # convert outputs to string if necessary
+        if return_string:
             return [o.outputs[0].text for o in outputs]
         return outputs
 
