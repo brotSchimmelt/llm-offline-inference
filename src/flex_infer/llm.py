@@ -5,11 +5,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import vllm
+from icecream import ic
 from outlines.integrations.vllm import JSONLogitsProcessor, RegexLogitsProcessor
 from pydantic import BaseModel
 from vllm.outputs import RequestOutput
 
-from .config import PROMPT_TEMPLATES, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
+from .config import PROMPT_FORMATS, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
+from .generation_params import GenerationParams
 from .utils import get_time
 
 
@@ -29,33 +31,44 @@ class ModelSettings:
     """
 
     name: str
-    path: str
-    prompt_template_name: str
+    model_path: str
+    prompt_format: str
     num_gpus: int = 1
     seed: int = field(default_factory=lambda: RANDOM_SEED)
     quant: Optional[str] = None
 
     def __post_init__(self) -> None:
-        if not Path(self.path).exists():
-            raise ValueError(f"Invalid path: {self.path}")
+        if not Path(self.model_path).exists():
+            raise ValueError(f"Invalid path: {self.model_path}")
 
-        if self.prompt_template_name not in PROMPT_TEMPLATES:
-            raise ValueError(f"Invalid prompt template: {self.prompt_template}")
+        if self.prompt_format not in PROMPT_FORMATS:
+            raise ValueError(f"Invalid prompt template: {self.prompt_format}")
 
         if self.quant is not None:
             if self.quant not in SUPPORTED_QUANTIZATION_MODES:
                 raise ValueError(f"Invalid quantization mode: {self.quant}")
 
-        self.prompt_template = PROMPT_TEMPLATES[self.prompt_template_name]
-
 
 class LLM(ABC):
-    def __init__(self, model_settings: Dict[str, Any]) -> None:
-        self._settings = ModelSettings(**model_settings)
-        self.prompt_template = self._settings.prompt_template["format"]
-        self.eos_token = self._settings.prompt_template["end_of_seq"]
-        self.system_prompt_template = self._settings.prompt_template["format_system"]
-        self.name = self._settings.name
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        prompt_format: str,
+        num_gpus: int = 1,
+        seed: int = RANDOM_SEED,
+        quant: str = None,
+    ) -> None:
+        # load and validate model settings
+        self._settings = ModelSettings(
+            name, model_path, prompt_format, num_gpus, seed, quant
+        )
+
+        # load prompt settings
+        self._prompt_settings = PROMPT_FORMATS[self._settings.prompt_format]
+        self.prompt_template = self._prompt_settings["prompt_template"]
+        self.system_prompt_template = self._prompt_settings["system_prompt_template"]
+        self.eos_token = self._prompt_settings["eos_token"]
 
     @abstractmethod
     def generate(self) -> Union[List[str], List[Any]]:
@@ -76,7 +89,7 @@ class LLM(ABC):
         settings_str = "\n".join(
             [f"{k}: {v}" for k, v in self.get_model_settings().items()]
         )
-        return f"LLM: {self.name}\n{settings_str}"
+        return f"LLM: {self._settings.name}\n{settings_str}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -87,10 +100,20 @@ class VLLM(LLM):
     of vLLM models including support for dynamically batched and guided generation.
     """
 
-    def __init__(self, model_settings: Dict[str, Any]) -> None:
-        super().__init__(model_settings)
+    def __init__(
+        self,
+        name: str,
+        model_path: str,
+        prompt_format: str,
+        num_gpus: int = 1,
+        seed: int = RANDOM_SEED,
+        quant: str = None,
+    ) -> None:
+        super().__init__(name, model_path, prompt_format, num_gpus, seed, quant)
+
+        # load the model
         self.model = vllm.LLM(
-            model=self._settings.path,
+            model=self._settings.model_path,
             seed=self._settings.seed,
             tensor_parallel_size=self._settings.num_gpus,
             quantization=self._settings.quant,
@@ -100,7 +123,7 @@ class VLLM(LLM):
     def generate(
         self,
         prompts: Union[List[str], str],
-        sampling_params: vllm.SamplingParams,
+        generation_params: GenerationParams,
         return_string: bool = True,
         json_schema: BaseModel = None,
         choices: List[str] = None,
@@ -108,14 +131,14 @@ class VLLM(LLM):
         use_tqdm: bool = True,
     ) -> Union[List[str], List[RequestOutput]]:
         """
-        Generates text based on the given prompts and sampling parameters, with optional
-        support for guided generation using either a JSON schema or regular expression
-        choices.
+        Generates text based on the given prompts and generation parameters, with
+        optional support for guided generation using either a JSON schema or regular
+        expression choices.
 
         Args:
             prompts (Union[List[str], str]): The prompt(s) to generate text for.
-                sampling_params (vllm.SamplingParams): Parameters to control the
-                sampling behavior.
+            generation_params (GenerationParams): Parameters to control the generation
+                behavior.
             return_string (bool, optional): The format of the generated output (string
                 or vllm.RequestOutput). Defaults to True.
             json_schema (BaseModel, optional): A Pydantic model representing a JSON
@@ -142,6 +165,9 @@ class VLLM(LLM):
         if batch_size < 0 or not isinstance(batch_size, int):
             raise ValueError(f"Invalid batch size: {batch_size}. batch_size > 0!")
 
+        # convert generation params to vllm.SamplingParams
+        sampling_params = self._create_sampling_params(generation_params)
+
         # format prompts with the model's template
         prompts = self.format_prompts(prompts)
 
@@ -166,6 +192,21 @@ class VLLM(LLM):
             return [o.outputs[0].text for o in outputs]
         return outputs
 
+    def _create_sampling_params(
+        self, generation_params: GenerationParams
+    ) -> vllm.SamplingParams:
+        """
+        Converts a GenerationParams object to a vllm.SamplingParams object.
+
+        Args:
+            generation_params (GenerationParams): Parameters to control the generation
+                behavior.
+
+        Returns:
+            vllm.SamplingParams: The converted sampling parameters.
+        """
+        return vllm.SamplingParams(**generation_params.get_vllm_params())
+
     def _manually_batched_generation(
         self,
         prompts: List[str],
@@ -189,7 +230,11 @@ class VLLM(LLM):
         results = []
         for i in range(0, len(prompts), batch_size):
             current_prompts = prompts[i : i + batch_size]
-            output = self.model.generate(current_prompts, sampling_params, use_tqdm)
+            output = self.model.generate(
+                prompts=current_prompts,
+                sampling_params=sampling_params,
+                use_tqdm=use_tqdm,
+            )
             results.extend(output)
         return results
 
@@ -209,7 +254,9 @@ class VLLM(LLM):
         Returns:
             List[RequestOutput]: A list of generated responses.
         """
-        return self.model.generate(prompts, sampling_params, use_tqdm)
+        return self.model.generate(
+            prompts=prompts, sampling_params=sampling_params, use_tqdm=use_tqdm
+        )
 
     def _configure_guided_generation(
         self,
