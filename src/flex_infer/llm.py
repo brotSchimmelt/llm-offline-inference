@@ -10,9 +10,17 @@ from outlines.integrations.vllm import JSONLogitsProcessor, RegexLogitsProcessor
 from pydantic import BaseModel
 from vllm.outputs import RequestOutput
 
-from .config import PROMPT_FORMATS, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
+from .config import (
+    DEBUG_MODE,
+    PROMPT_FORMATS,
+    RANDOM_SEED,
+    SUPPORTED_QUANTIZATION_MODES,
+)
 from .generation_params import GenerationParams
 from .utils import get_time
+
+if not DEBUG_MODE:
+    ic.disable()
 
 
 @dataclass
@@ -63,12 +71,14 @@ class LLM(ABC):
         self._settings = ModelSettings(
             name, model_path, prompt_format, num_gpus, seed, quant
         )
+        ic(self._settings)
 
         # load prompt settings
         self._prompt_settings = PROMPT_FORMATS[self._settings.prompt_format]
         self.prompt_template = self._prompt_settings["prompt_template"]
         self.system_prompt_template = self._prompt_settings["system_prompt_template"]
         self.eos_token = self._prompt_settings["eos_token"]
+        ic(self._prompt_settings)
 
     @abstractmethod
     def generate(self) -> Union[List[str], List[Any]]:
@@ -83,6 +93,7 @@ class LLM(ABC):
 
     def get_model_settings(self) -> Dict[str, Any]:
         """Getter for the model settings."""
+        ic(asdict(self._settings))
         return asdict(self._settings)
 
     def __str__(self) -> str:
@@ -167,9 +178,11 @@ class VLLM(LLM):
 
         # convert generation params to vllm.SamplingParams
         sampling_params = self._create_sampling_params(generation_params)
+        ic(sampling_params)
 
         # format prompts with the model's template
         prompts = self.format_prompts(prompts)
+        ic(prompts[0])
 
         # create logits processors for guided generation
         if json_schema or choices:
