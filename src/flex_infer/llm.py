@@ -11,18 +11,12 @@ from outlines.integrations.vllm import JSONLogitsProcessor, RegexLogitsProcessor
 from pydantic import BaseModel
 from vllm.outputs import RequestOutput
 
-from .config import (
-    DEBUG_MODE,
-    LOGGING,
-    PROMPT_FORMATS,
-    RANDOM_SEED,
-    SUPPORTED_QUANTIZATION_MODES,
-)
+from .config import LOGGING, PROMPT_FORMATS, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
 from .utils import get_time
 
 ##### SETUP LOGGING #####
-if not DEBUG_MODE:
+if LOGGING["disable_icecream"]:
     ic.disable()
 logger = logging.getLogger(LOGGING["logger_name"])
 ##### SETUP LOGGING #####

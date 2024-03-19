@@ -1,8 +1,7 @@
 LOGGING = {
     "logger_name": "flex_infer",
+    "disable_icecream": False,
 }
-
-DEBUG_MODE = False
 
 RANDOM_SEED = 42
 
