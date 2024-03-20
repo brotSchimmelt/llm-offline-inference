@@ -43,21 +43,23 @@ class City(BaseModel):
   city: str
 
 
-results = llm.generate(
+output = llm.generate(
     "What is the capital of Iceland?",
     generation_params,
     return_string=True,
     json_schema=City, # optional
     system_prompt="You are a helpful assistant.", # optional
 )
+# output: { "city": "Reykjavik" }
 ```
 
 ## ToDo
 
-- add output validation for guided generation
-- add support for custom prompt templates
+- add output validation for guided generation in LLM.generation()
+- add support for custom prompt templates in LLM
 - add examples
   - inference with vllm or transformers
   - guided inference
   - custom template
 - add evaluation for classification (f1, precision, recall)
+- add refusal detection with Sentence-Transformers
