@@ -84,10 +84,20 @@ class LLM(ABC):
         """Generate a response from the model."""
         pass
 
-    def format_prompts(self, prompts: Union[List[str], str]) -> List[str]:
+    def format_prompts(
+        self, prompts: Union[List[str], str], system_prompt: str = None
+    ) -> List[str]:
         """Format prompts using the model's template."""
         if isinstance(prompts, str):
             prompts = [prompts]
+
+        if system_prompt:
+            return [
+                self.system_prompt_template.format(
+                    system_prompt=system_prompt, prompt=p.strip()
+                ).strip()
+                for p in prompts
+            ]
         return [self.prompt_template.format(p.strip()).strip() for p in prompts]
 
     def get_model_settings(self) -> Dict[str, Any]:
@@ -150,6 +160,7 @@ class VLLM(LLM):
         choices: List[str] = None,
         batch_size: int = 0,
         use_tqdm: bool = True,
+        system_prompt: str = None,
     ) -> Union[List[str], List[RequestOutput]]:
         """
         Generates text based on the given prompts and generation parameters, with
@@ -192,7 +203,7 @@ class VLLM(LLM):
         ic(sampling_params)
 
         # format prompts with the model's template
-        prompts = self.format_prompts(prompts)
+        prompts = self.format_prompts(prompts, system_prompt)
         ic(prompts[0])
         logger.info(f"First formatted prompt: {prompts[0]}")
 
@@ -376,6 +387,7 @@ class TransformersLLM(LLM):
         json_schema: BaseModel = None,
         choices: List[str] = None,
         use_tqdm: bool = True,
+        system_prompt: str = None,
     ) -> Union[List[str], List[List[Dict[str, str]]]]:
         """
         Generates text based on the given prompts and generation parameters, with
@@ -413,7 +425,7 @@ class TransformersLLM(LLM):
         ic(generation_params)
 
         # format prompts with the model's template
-        prompts = self.format_prompts(prompts)
+        prompts = self.format_prompts(prompts, system_prompt)
         ic(prompts[0])
         logger.info(f"First formatted prompt: {prompts[0]}")
 
