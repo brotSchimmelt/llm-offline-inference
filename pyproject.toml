@@ -12,7 +12,22 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["numpy"]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "pydantic>=2.0",
+    "torch==2.1.2",
+    "vllm==0.3.3",
+    "outlines==0.0.36",
+    "transformers"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "icecream"
+]
 
 [tool.ruff]
 select = ["E", "F"]
