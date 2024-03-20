@@ -375,6 +375,8 @@ class TransformersLLM(LLM):
         else:
             self.model_kwargs["device_map"] = "auto"
 
+        transformers.set_seed(self._settings.seed)
+
         # load the model
         self.model = transformers.pipeline("text-generation", **self.model_kwargs)
 
@@ -434,6 +436,8 @@ class TransformersLLM(LLM):
             generation_params = self._configure_guided_generation(
                 generation_params, json_schema, choices
             )
+
+        transformers.set_seed(self._settings.seed)
 
         outputs = self.model(prompts, **generation_params)
 
