@@ -191,7 +191,7 @@ class VLLM(LLM):
                 output based on return_type.
         """
         logger.info(f"Generation arguments: {locals()}")
-        # validate inputs
+
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
 
@@ -207,13 +207,11 @@ class VLLM(LLM):
         ic(prompts[0])
         logger.info(f"First formatted prompt: {prompts[0]}")
 
-        # create logits processors for guided generation
         if json_schema or choices:
             sampling_params = self._configure_guided_generation(
                 sampling_params, json_schema, choices
             )
 
-        # generate responses
         if batch_size > 0:
             outputs = self._manually_batched_generation(
                 prompts, sampling_params, batch_size, use_tqdm
@@ -226,9 +224,37 @@ class VLLM(LLM):
         logger.info(f"Generated {len(outputs)} outputs.")
         logger.info(f"First output: {outputs[0].outputs[0].text}")
 
-        # convert outputs to string if necessary
+        return self._post_process_model_output(
+            outputs, generation_params, return_string
+        )
+
+    def _post_process_model_output(
+        self,
+        outputs: List[Dict[str, str]],
+        generation_params: GenerationParams,
+        return_string: bool,
+    ) -> Union[List[str], List[RequestOutput]]:
+        """
+        Adds post-processing steps to the model output, such as converting it to a list
+        and validating the model output.
+
+        Args:
+            outputs (List[RequestOutput]): Model output to post-process.
+            generation_params (GenerationParams): The parameters used for generation.
+            return_string (bool): Whether to return the output as a string.
+
+        Returns:
+            Union[List[str], List[RequestOutput]]: The post-processed model output.
+        """
         if return_string:
-            return [o.outputs[0].text for o in outputs]
+            if generation_params.n > 1:
+                results = []
+                for request_output in outputs:
+                    results.append([o.text for o in request_output.outputs])
+                return results
+
+            else:
+                return [o.outputs[0].text for o in outputs]
         return outputs
 
     def _create_sampling_params(
@@ -364,7 +390,6 @@ class TransformersLLM(LLM):
 
         self._type = self.__class__.__name__
 
-        # get model settings
         self.model_kwargs = {
             "model": self._settings.model_path,
             "trust_remote_code": self._settings.trust_remote_code,
@@ -377,7 +402,6 @@ class TransformersLLM(LLM):
 
         transformers.set_seed(self._settings.seed)
 
-        # load the model
         self.model = transformers.pipeline("text-generation", **self.model_kwargs)
 
     @get_time
@@ -417,21 +441,20 @@ class TransformersLLM(LLM):
                 structured output based on return_type.
         """
         logger.info(f"Generation arguments: {locals()}")
-        # validate inputs
+
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
 
-        # get generation params
         generation_params = self._get_generation_params(generation_params)
-        generation_params["pad_token_id"] = self.model.tokenizer.eos_token_id
         ic(generation_params)
 
-        # format prompts with the model's template
+        # set the pad token id to eos token id to suppress transformer warnings
+        generation_params["pad_token_id"] = self.model.tokenizer.eos_token_id
+
         prompts = self.format_prompts(prompts, system_prompt)
         ic(prompts[0])
         logger.info(f"First formatted prompt: {prompts[0]}")
 
-        # create logits processors for guided generation
         if json_schema or choices:
             generation_params = self._configure_guided_generation(
                 generation_params, json_schema, choices
@@ -441,8 +464,35 @@ class TransformersLLM(LLM):
 
         outputs = self.model(prompts, **generation_params)
 
+        logger.info(f"Generated {len(outputs)} outputs.")
+
+        return self._post_process_model_output(
+            outputs, generation_params, return_string
+        )
+
+    def _post_process_model_output(
+        self,
+        outputs: List[Dict[str, str]],
+        generation_params: GenerationParams,
+        return_string: bool,
+    ) -> Union[List[Dict[str, str]], List[str]]:
+        """
+        Adds post-processing steps to the model output, such as converting it to a list
+        and validating the model output.
+
+        Args:
+            outputs (List[Dict[str, str]]): Model output to post-process.
+            generation_params (GenerationParams): The parameters used for generation.
+            return_string (bool): Whether to return the output as a string.
+
+        Returns:
+            Union[List[str], List[RequestOutput]]: The post-processed model output.
+        """
         if return_string:
-            return [o[0]["generated_text"] for o in outputs]
+            if generation_params["num_return_sequences"] > 1:
+                return [[o["generated_text"] for o in output] for output in outputs]
+            else:
+                return [o[0]["generated_text"] for o in outputs]
         return outputs
 
     def _get_generation_params(
@@ -492,6 +542,17 @@ class TransformersLLM(LLM):
             choices_regex = "(" + "|".join([re.escape(c) for c in choices]) + ")"
             prefix_allowed_tokens_fn = RegexPrefixAllowedTokens(
                 regex_string=choices_regex, tokenizer_or_pipe=self.model
+            )
+
+        # currently there is a bug in the integration for outlines in transformers that
+        # causes the generation of more than one sequence to fail when using a guided
+        # generation. outlines==0.0.36
+        if generation_params["num_return_sequences"] > 1:
+            generation_params["num_return_sequences"] = 1
+            logger.warning(
+                "Setting 'num_return_sequences' (n) to 1 due to a bug in outlines "
+                + "0.0.36 with transformers integration. Change to vLLM for multiple "
+                + "return sequence support."
             )
 
         generation_params["prefix_allowed_tokens_fn"] = prefix_allowed_tokens_fn
