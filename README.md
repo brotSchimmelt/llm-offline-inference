@@ -50,7 +50,7 @@ output = llm.generate(
     json_schema=City, # optional
     system_prompt="You are a helpful assistant.", # optional
 )
-# output: { "city": "Reykjavik" }
+# output[0]: { "city": "Reykjavik" }
 ```
 
 ## ToDo
@@ -63,3 +63,5 @@ output = llm.generate(
   - custom template
 - add evaluation for classification (f1, precision, recall)
 - add refusal detection with Sentence-Transformers
+- add [tqdm for transformers](https://github.com/huggingface/transformers/issues/14789)
+- add function to save model output to file (pandas -> csv)
