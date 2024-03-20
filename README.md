@@ -27,7 +27,7 @@ from flex_infer import VLLM, GenerationParams
 # initialize the model
 llm = VLLM(
   name="human friendly model name",
-  model_path="/path/to/model"
+  model_path="/path/to/model",
   prompt_format="llama2" # supported prompt formats are found in config/prompt_formats.py
 )
 
