@@ -65,3 +65,4 @@ output = llm.generate(
 - add refusal detection with Sentence-Transformers
 - add [tqdm for transformers](https://github.com/huggingface/transformers/issues/14789)
 - add function to save model output to file (pandas -> csv)
+- add support for Self-Consistency
