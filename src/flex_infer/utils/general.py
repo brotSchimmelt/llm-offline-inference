@@ -1,7 +1,10 @@
 import json
+import os
 from functools import wraps
 from time import perf_counter
 from typing import Any, Callable, List
+
+import pandas as pd
 
 
 def get_time(func: Callable) -> Callable:
@@ -92,3 +95,25 @@ def is_valid_binary_sequence(seq: List[int]) -> bool:
     return all(isinstance(item, int) for item in seq) and all(
         item in [0, 1] for item in seq
     )
+
+
+def save_df_to_csv(df: pd.DataFrame, file_path: str, index: bool = False) -> None:
+    """
+    Saves a pandas DataFrame to a CSV file, with checks for directory validity and
+    file extension.
+
+    Args:
+        df (pd.DataFrame): The pandas DataFrame to save.
+        file_path (str): The path (including file name and extension) where the CSV file
+                         will be saved. If the file exists, it will be overwritten.
+        index (bool, optional): Whether to include the DataFrame index in the CSV file.
+                                Defaults to False, meaning the index will not be saved.
+    """
+    directory = os.path.dirname(file_path)
+    if not os.path.exists(directory) and directory != "":
+        raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+
+    if not file_path.lower().endswith(".csv"):
+        file_path += ".csv"
+
+    df.to_csv(file_path, index=index)
