@@ -77,3 +77,18 @@ def validate_choice(s: str, choices: List[str]) -> bool:
         raise TypeError("choices must be a list of strings")
 
     return s in choices
+
+
+def is_valid_binary_sequence(seq: List[int]) -> bool:
+    """
+    Checks if a sequence consists only of integers and that these are only 0 and 1.
+
+    Args:
+        seq (list or array-like): The sequence to check.
+
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    return all(isinstance(item, int) for item in seq) and all(
+        item in [0, 1] for item in seq
+    )
