@@ -55,14 +55,11 @@ output = llm.generate(
 
 ## ToDo
 
-- add output validation for guided generation in LLM.generation()
 - add support for custom prompt templates in LLM
 - add examples
   - inference with vllm or transformers
   - guided inference
   - custom template
-- add evaluation for classification (f1, precision, recall)
 - add refusal detection with Sentence-Transformers
 - add [tqdm for transformers](https://github.com/huggingface/transformers/issues/14789)
-- add function to save model output to file (pandas -> csv)
 - add support for Self-Consistency
