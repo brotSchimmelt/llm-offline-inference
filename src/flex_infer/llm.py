@@ -18,7 +18,7 @@ from vllm.outputs import RequestOutput
 
 from .config import LOGGING, PROMPT_FORMATS, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import get_time
+from .utils import get_time, validate_choice, validate_json
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
@@ -84,6 +84,11 @@ class LLM(ABC):
         """Generate a response from the model."""
         pass
 
+    @abstractmethod
+    def unpack_output(self) -> Union[List[str], List[List[str]]]:
+        """Unpack the model output."""
+        pass
+
     def format_prompts(
         self, prompts: Union[List[str], str], system_prompt: str = None
     ) -> List[str]:
@@ -99,6 +104,90 @@ class LLM(ABC):
                 for p in prompts
             ]
         return [self.prompt_template.format(p.strip()).strip() for p in prompts]
+
+    def validate_model_output(
+        self,
+        output: Union[str, List[str]],
+        json_schema: BaseModel = None,
+        choices: List[str] = None,
+    ) -> bool:
+        """
+        Validates the output of a model against specified criteria.
+
+        Args:
+            output (Union[str, List[str]]): The model's output to validate, can be a
+                single string or a list of strings.
+            json_schema (BaseModel, optional): A Pydantic BaseModel representing the
+                JSON schema against which to validate the output. Defaults to None.
+            choices (List[str], optional): A list of strings representing the valid
+                choices against which to validate the output. Defaults to None.
+
+        Returns:
+            Tuple[bool, Optional[List[Tuple[int, str]]]]: A tuple where the first
+                element is a boolean indicating whether the output is valid, and the
+                second element is None if the output is valid or a list of tuples
+                (index, value) for each invalid output element if the output is invalid.
+        """
+        if not output:
+            raise ValueError("No output to validate.")
+
+        if isinstance(output, str):
+            output = [output]
+
+        if isinstance(output[0], str):
+            output = [[o] for o in output]
+
+        malformed = []
+        for output_idx, inner_output in enumerate(output):
+            for candidate_idx, o in enumerate(inner_output):
+                if json_schema:
+                    if not validate_json(o):
+                        malformed.append((output_idx, candidate_idx, o))
+                elif choices:
+                    if not validate_choice(o, choices):
+                        malformed.append((output_idx, candidate_idx, o))
+                else:
+                    if not isinstance(o, str):
+                        malformed.append((output_idx, candidate_idx, o))
+
+        if malformed:
+            return False, malformed
+        return True, None
+
+    def _post_process_model_output(
+        self,
+        outputs: List[Any],
+        return_string: bool,
+        json_schema: BaseModel = None,
+        choices: List[str] = None,
+    ) -> Union[List[str], List[Any]]:
+        """
+        Adds post-processing steps to the model output, such as converting it to a list
+        and validating the model output.
+
+        Args:
+            outputs (List[Any]): Model output to post-process.
+            return_string (bool): Whether to return the output as a string.
+            json_schema (BaseModel, optional): A Pydantic model representing a JSON
+                schema for guided generation. Defaults to None.
+            choices (List[str], optional): A list of strings to guide the generation via
+                regular expressions. Defaults to None.
+
+        Returns:
+            Union[List[str], List[Any]]: The post-processed model output.
+        """
+        unpacked_output = self.unpack_output(outputs)
+
+        valid, malformed = self.validate_model_output(
+            unpacked_output, json_schema, choices
+        )
+        if not valid:
+            logger.warning("Invalid model output found. See logs for details.")
+            logger.info(f"Malformed output: {malformed}")
+
+        if return_string:
+            return unpacked_output
+        return outputs
 
     def get_model_settings(self) -> Dict[str, Any]:
         """Getter for the model settings."""
@@ -149,6 +238,23 @@ class VLLM(LLM):
             quantization=self._settings.quant,
             trust_remote_code=self._settings.trust_remote_code,
         )
+
+    def unpack_output(
+        self, output: List[RequestOutput]
+    ) -> Union[List[str], List[List[str]]]:
+        """
+        Extracts text data from a list of RequestOutput objects.
+
+        Args:
+            output (List[RequestOutput]): A list of RequestOutput objects.
+        Returns:
+            Union[List[str], List[List[str]]]: Unpacked text data.
+        """
+        if len(output[0].outputs) > 1:
+            return [
+                [o.text for o in request_output.outputs] for request_output in output
+            ]
+        return [o.outputs[0].text for o in output]
 
     @get_time
     def generate(
@@ -225,37 +331,8 @@ class VLLM(LLM):
         logger.info(f"First output: {outputs[0].outputs[0].text}")
 
         return self._post_process_model_output(
-            outputs, generation_params, return_string
+            outputs, return_string, json_schema, choices
         )
-
-    def _post_process_model_output(
-        self,
-        outputs: List[Dict[str, str]],
-        generation_params: GenerationParams,
-        return_string: bool,
-    ) -> Union[List[str], List[RequestOutput]]:
-        """
-        Adds post-processing steps to the model output, such as converting it to a list
-        and validating the model output.
-
-        Args:
-            outputs (List[RequestOutput]): Model output to post-process.
-            generation_params (GenerationParams): The parameters used for generation.
-            return_string (bool): Whether to return the output as a string.
-
-        Returns:
-            Union[List[str], List[RequestOutput]]: The post-processed model output.
-        """
-        if return_string:
-            if generation_params.n > 1:
-                results = []
-                for request_output in outputs:
-                    results.append([o.text for o in request_output.outputs])
-                return results
-
-            else:
-                return [o.outputs[0].text for o in outputs]
-        return outputs
 
     def _create_sampling_params(
         self, generation_params: GenerationParams
@@ -404,6 +481,21 @@ class TransformersLLM(LLM):
 
         self.model = transformers.pipeline("text-generation", **self.model_kwargs)
 
+    def unpack_output(
+        self, outputs: List[List[Dict[str, str]]]
+    ) -> Union[List[str], List[List[str]]]:
+        """
+        Extracts text data from a list of Dicts.
+
+        Args:
+            outputs (List[List[Dict[str, str]]]): A list of Dicts.
+        Returns:
+            Union[List[str], List[List[str]]]: Unpacked text data.
+        """
+        if len(outputs[0]) > 1:
+            return [[o["generated_text"] for o in output] for output in outputs]
+        return [o[0]["generated_text"] for o in outputs]
+
     @get_time
     def generate(
         self,
@@ -467,33 +559,8 @@ class TransformersLLM(LLM):
         logger.info(f"Generated {len(outputs)} outputs.")
 
         return self._post_process_model_output(
-            outputs, generation_params, return_string
+            outputs, return_string, json_schema, choices
         )
-
-    def _post_process_model_output(
-        self,
-        outputs: List[Dict[str, str]],
-        generation_params: GenerationParams,
-        return_string: bool,
-    ) -> Union[List[Dict[str, str]], List[str]]:
-        """
-        Adds post-processing steps to the model output, such as converting it to a list
-        and validating the model output.
-
-        Args:
-            outputs (List[Dict[str, str]]): Model output to post-process.
-            generation_params (GenerationParams): The parameters used for generation.
-            return_string (bool): Whether to return the output as a string.
-
-        Returns:
-            Union[List[str], List[RequestOutput]]: The post-processed model output.
-        """
-        if return_string:
-            if generation_params["num_return_sequences"] > 1:
-                return [[o["generated_text"] for o in output] for output in outputs]
-            else:
-                return [o[0]["generated_text"] for o in outputs]
-        return outputs
 
     def _get_generation_params(
         self, generation_params: GenerationParams

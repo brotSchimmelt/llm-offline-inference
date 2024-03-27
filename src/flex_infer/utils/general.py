@@ -1,6 +1,7 @@
+import json
 from functools import wraps
 from time import perf_counter
-from typing import Any, Callable
+from typing import Any, Callable, List
 
 
 def get_time(func: Callable) -> Callable:
@@ -29,3 +30,50 @@ def get_time(func: Callable) -> Callable:
         return result
 
     return wrapper
+
+
+def validate_json(json_string: str) -> bool:
+    """
+    Validates whether the given string is a properly formatted JSON.
+
+    Args:
+        json_string (str): The string to be validated as JSON. It should be a string
+            representation of a JSON object.
+
+    Returns:
+        bool: A boolean value indicating whether the input string is a valid JSON
+            format.
+    """
+    if not json_string or not isinstance(json_string, str):
+        return False
+
+    try:
+        json.loads(json_string)
+        return True
+    except json.JSONDecodeError:
+        return False
+
+
+def validate_choice(s: str, choices: List[str]) -> bool:
+    """
+    Validates if the given string is among a list of specified choices.
+
+    Args:
+        s (str): The string to validate against the list of choices.
+        choices (List[str]): A list of strings representing the valid options.
+
+    Raises:
+        TypeError: Raised if the `choices` parameter is not a list, ensuring that the
+            function operates on the expected types.
+
+    Returns:
+        bool: A boolean indicating whether the string `s` is found within the `choices`
+            list.
+    """
+    if not s or not isinstance(s, str):
+        return False
+
+    if not isinstance(choices, list):
+        raise TypeError("choices must be a list of strings")
+
+    return s in choices
