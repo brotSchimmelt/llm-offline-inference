@@ -373,8 +373,6 @@ class VLLM(LLM):
             Union[List[str], List[RequestOutput]]: The generated text or structured
                 output based on return_type.
         """
-        logger.info(f"Generation arguments: {locals()}")
-
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
 
@@ -609,8 +607,6 @@ class TransformersLLM(LLM):
             Union[List[str], List[List[Dict[str, str]]]]: The generated text or
                 structured output based on return_type.
         """
-        logger.info(f"Generation arguments: {locals()}")
-
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
 
@@ -695,8 +691,8 @@ class TransformersLLM(LLM):
             generation_params["num_return_sequences"] = 1
             logger.warning(
                 "Setting 'num_return_sequences' (n) to 1 due to a bug in outlines "
-                + "0.0.36 with transformers integration. Change to vLLM for multiple "
-                + "return sequence support."
+                "0.0.36 with transformers integration. Change to vLLM for multiple "
+                "return sequence support."
             )
 
         generation_params["prefix_allowed_tokens_fn"] = prefix_allowed_tokens_fn
