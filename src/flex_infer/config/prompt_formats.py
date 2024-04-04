@@ -9,6 +9,11 @@ PROMPT_FORMATS = {
         "system_prompt_template": "<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{prompt} [/INST]",  # noqa: E501
         "eos_token": "</s>",
     },
+    "gemma": {
+        "prompt_template": "<bos><start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n",  # noqa: E501
+        "system_prompt_template": "<bos><start_of_turn>user\n{system_prompt}\n{prompt}<end_of_turn>\n<start_of_turn>model\n",  # noqa: E501
+        "eos_token": "<eos>",
+    },
     "zephyr": {
         "prompt_template": "<|user|>\n{}</s>\n<|assistant|>\n",
         "system_prompt_template": "<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n",  # noqa: E501
