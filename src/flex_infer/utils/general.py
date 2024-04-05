@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from functools import wraps
 from time import perf_counter
@@ -6,16 +7,20 @@ from typing import Any, Callable, List
 
 import pandas as pd
 
+from flex_infer.config import LOGGING
+
+logger = logging.getLogger(LOGGING["logger_name"])
+
 
 def get_time(func: Callable) -> Callable:
-    """Decorates a function to print its execution time.
+    """Decorates a function to log its execution time.
 
     Args:
         func (Callable): The function to be measured and wrapped.
 
     Returns:
         Callable: A wrapper function that, when called, will execute the original func,
-        measure and print its execution time, and then return the result of func.
+        measure and log its execution time, and then return the result of func.
     """
 
     @wraps(func)
@@ -29,7 +34,7 @@ def get_time(func: Callable) -> Callable:
 
         formatted_seconds = str(int(seconds)).zfill(2)
 
-        print(f"'{func.__name__}()' took {int(minutes)}:{formatted_seconds} min")
+        logger.info(f"'{func.__name__}()' took {int(minutes)}:{formatted_seconds} min")
         return result
 
     return wrapper
