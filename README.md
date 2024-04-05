@@ -13,7 +13,7 @@ git clone https://github.com/brotSchimmelt/flex-infer.git /path/to/flex-infer
 Install the package with pip in editable mode in a fresh virtual environment.
 
 ```bash
-pip install /path/to/flex-infer -e
+pip install -e /path/to/flex-infer
 ```
 
 By installing the package in editable mode, we can easily make changes to the code without re-installing it.
