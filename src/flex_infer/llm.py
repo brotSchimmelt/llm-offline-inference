@@ -579,6 +579,7 @@ class TransformersLLM(LLM):
         return_string: bool = True,
         json_schema: BaseModel = None,
         choices: List[str] = None,
+        batch_size: int = 0,
         use_tqdm: bool = True,
         system_prompt: str = None,
     ) -> Union[List[str], List[List[Dict[str, str]]]]:
@@ -599,6 +600,8 @@ class TransformersLLM(LLM):
                 regular expressions. Defaults to None.
             use_tqdm (bool, optional): Whether to display a progress bar during
                 generation. Defaults to True.
+            system_prompt (str, optional): A system prompt to prepend to the prompt.
+            batch_size (int, optional): NOT SUPPORTED YET. Defaults to 0.
 
         Raises:
             ValueError: If both json_schema and choices are provided.
@@ -609,6 +612,9 @@ class TransformersLLM(LLM):
         """
         if json_schema and choices:
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
+
+        if batch_size != 0:
+            logger.INFO("Batch size is not supported yet.")
 
         generation_params = self._get_generation_params(generation_params)
         ic(generation_params)
