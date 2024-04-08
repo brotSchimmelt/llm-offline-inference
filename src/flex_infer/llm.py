@@ -614,7 +614,7 @@ class TransformersLLM(LLM):
             raise ValueError("Cannot use guided generation for both JSON and RegEx.")
 
         if batch_size != 0:
-            logger.INFO("Batch size is not supported yet.")
+            logger.info("Batch size is not supported yet.")
 
         generation_params = self._get_generation_params(generation_params)
         ic(generation_params)
