@@ -255,9 +255,7 @@ class LLM(ABC):
         """
         unpacked_output = self.unpack_output(outputs)
 
-        valid, malformed = self.validate_model_output(
-            unpacked_output, json_schema, choices
-        )
+        valid, malformed = self.validate_model_output(unpacked_output, json_schema, choices)
         if not valid:
             logger.warning("Invalid model output found. See logs for details.")
             logger.info(f"Malformed output: {malformed}")
@@ -271,9 +269,7 @@ class LLM(ABC):
         return asdict(self._settings)
 
     def __str__(self) -> str:
-        settings_str = "\n".join(
-            [f"{k}: {v}" for k, v in self.get_model_settings().items()]
-        )
+        settings_str = "\n".join([f"{k}: {v}" for k, v in self.get_model_settings().items()])
         return f"{self._type} Instance\n{settings_str}"
 
     def __repr__(self) -> str:
@@ -294,6 +290,7 @@ class VLLM(LLM):
         seed: int = RANDOM_SEED,
         quant: str = None,
         trust_remote_code: bool = False,
+        **kwargs,
     ) -> None:
         super().__init__(
             name=name,
@@ -314,11 +311,10 @@ class VLLM(LLM):
             tensor_parallel_size=self._settings.num_gpus,
             quantization=self._settings.quant,
             trust_remote_code=self._settings.trust_remote_code,
+            **kwargs,
         )
 
-    def unpack_output(
-        self, output: List[RequestOutput]
-    ) -> Union[List[str], List[List[str]]]:
+    def unpack_output(self, output: List[RequestOutput]) -> Union[List[str], List[List[str]]]:
         """
         Extracts text data from a list of RequestOutput objects.
 
@@ -328,9 +324,7 @@ class VLLM(LLM):
             Union[List[str], List[List[str]]]: Unpacked text data.
         """
         if len(output[0].outputs) > 1:
-            return [
-                [o.text for o in request_output.outputs] for request_output in output
-            ]
+            return [[o.text for o in request_output.outputs] for request_output in output]
         return [o.outputs[0].text for o in output]
 
     @get_time
@@ -398,20 +392,14 @@ class VLLM(LLM):
                 prompts, sampling_params, batch_size, use_tqdm
             )
         else:
-            outputs = self._dynamically_batched_generation(
-                prompts, sampling_params, use_tqdm
-            )
+            outputs = self._dynamically_batched_generation(prompts, sampling_params, use_tqdm)
 
         logger.info(f"Generated {len(outputs)} outputs.")
         logger.info(f"First output: {outputs[0].outputs[0].text}")
 
-        return self._post_process_model_output(
-            outputs, return_string, json_schema, choices
-        )
+        return self._post_process_model_output(outputs, return_string, json_schema, choices)
 
-    def _create_sampling_params(
-        self, generation_params: GenerationParams
-    ) -> vllm.SamplingParams:
+    def _create_sampling_params(self, generation_params: GenerationParams) -> vllm.SamplingParams:
         """
         Converts a GenerationParams object to a vllm.SamplingParams object.
 
@@ -506,9 +494,7 @@ class VLLM(LLM):
 
         else:
             choices_regex = "(" + "|".join([re.escape(c) for c in choices]) + ")"
-            logits_processor = RegexLogitsProcessor(
-                regex_string=choices_regex, llm=self.model
-            )
+            logits_processor = RegexLogitsProcessor(regex_string=choices_regex, llm=self.model)
 
         sampling_params.logits_processors = [logits_processor]
         logger.info("Configured sampling parameters for guided generation.")
@@ -637,13 +623,9 @@ class TransformersLLM(LLM):
 
         logger.info(f"Generated {len(outputs)} outputs.")
 
-        return self._post_process_model_output(
-            outputs, return_string, json_schema, choices
-        )
+        return self._post_process_model_output(outputs, return_string, json_schema, choices)
 
-    def _get_generation_params(
-        self, generation_params: GenerationParams
-    ) -> Dict[str, Any]:
+    def _get_generation_params(self, generation_params: GenerationParams) -> Dict[str, Any]:
         """
         Converts a GenerationParams object to a dictionary of parameters compatible with
         the Transformers library.
