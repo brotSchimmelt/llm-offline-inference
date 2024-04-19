@@ -572,6 +572,7 @@ class TransformersLLM(LLM):
         batch_size: int = 0,
         use_tqdm: bool = True,
         system_prompt: str = None,
+        max_logprobs: int = 0,  # TODO implement functionality
     ) -> Union[List[str], List[List[Dict[str, str]]]]:
         """
         Generates text based on the given prompts and generation parameters, with
