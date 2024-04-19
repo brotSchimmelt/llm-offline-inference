@@ -1,2 +1,3 @@
 from .generation_params import GenerationParams
-from .llm import VLLM, TransformersLLM
+from .transformers import TransformersLLM
+from .vllm import VLLM
