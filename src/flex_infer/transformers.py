@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from .config import LOGGING, RANDOM_SEED
 from .generation_params import GenerationParams
-from .llm import LLM
+from .llm import LLM, ModelOutput
 from .utils import get_time
 
 ##### SETUP LOGGING #####
@@ -208,3 +208,6 @@ class TransformersLLM(LLM):
         generation_params["prefix_allowed_tokens_fn"] = prefix_allowed_tokens_fn
         logger.info("Configured generation parameters for guided generation.")
         return generation_params
+
+    def aggregate_outputs(self, outputs: Any) -> ModelOutput:
+        raise NotImplementedError("Method not implemented for TransformersLLM.")
