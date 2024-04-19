@@ -34,6 +34,11 @@ PROMPT_FORMATS = {
         "system_prompt_template": "<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{prompt} [/INST]",  # noqa: E501
         "eos_token": "</s>",
     },
+    "llama3": {
+        "prompt_template": "<|begin_of_text|><|eot_id|><|start_header_id|>user<|end_header_id|>{}<|eot_id|><|start_header_id|>assistant<|end_header_id|>",  # noqa: E501
+        "system_prompt_template": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>",  # noqa: E501
+        "eos_token": "<|eot_id|>",
+    },
     "no_style": {
         "prompt_template": "{}",
         "system_prompt_template": "{system_prompt}\n{prompt}",
