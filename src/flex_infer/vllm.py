@@ -37,6 +37,7 @@ class VLLM(LLM):
         seed: int = RANDOM_SEED,
         quant: str = None,
         trust_remote_code: bool = False,
+        max_logprobs: int = 10,
         **kwargs,
     ) -> None:
         super().__init__(
