@@ -1,5 +1,7 @@
 import logging
+import math
 import re
+from collections import defaultdict
 from typing import List, Union
 
 import vllm
@@ -11,7 +13,7 @@ from vllm.outputs import RequestOutput
 
 from .config import LOGGING, RANDOM_SEED
 from .generation_params import GenerationParams
-from .llm import LLM
+from .llm import LLM, ModelOutput
 from .utils import get_time
 
 ##### SETUP LOGGING #####
@@ -80,7 +82,7 @@ class VLLM(LLM):
         self,
         prompts: Union[List[str], str],
         generation_params: GenerationParams,
-        return_string: bool = True,
+        return_type: str = "str",
         json_schema: BaseModel = None,
         choices: List[str] = None,
         batch_size: int = 0,
@@ -96,8 +98,9 @@ class VLLM(LLM):
             prompts (Union[List[str], str]): The prompt(s) to generate text for.
             generation_params (GenerationParams): Parameters to control the generation
                 behavior.
-            return_string (bool, optional): The format of the generated output (string
-                or vllm.RequestOutput). Defaults to True.
+            return_type (str, optional): The format of the generated output. string "str",
+                vllm.RequestOutput "request_output" or ModelOutput "model_output".
+                Defaults to "str".
             json_schema (BaseModel, optional): A Pydantic model representing a JSON
                 schema for guided generation. Defaults to None.
             choices (List[str], optional): A list of strings to guide the generation via
@@ -145,7 +148,7 @@ class VLLM(LLM):
         logger.info(f"Generated {len(outputs)} outputs.")
         logger.info(f"First output: {outputs[0].outputs[0].text}")
 
-        return self._post_process_model_output(outputs, return_string, json_schema, choices)
+        return self._post_process_model_output(outputs, return_type, json_schema, choices)
 
     def _create_sampling_params(self, generation_params: GenerationParams) -> vllm.SamplingParams:
         """
@@ -247,3 +250,24 @@ class VLLM(LLM):
         sampling_params.logits_processors = [logits_processor]
         logger.info("Configured sampling parameters for guided generation.")
         return sampling_params
+
+    def aggregate_outputs(self, raw_outputs: List[RequestOutput]) -> ModelOutput:
+        prompts, outputs, output_tokens, cum_probs, token_probs = [], [], [], [], []
+
+        for output in raw_outputs:
+            prompts.append(output.prompt)
+            outputs.append(output.outputs[0].text)
+            output_tokens.append(output.outputs[0].token_ids)
+            cum_probs.append(output.outputs[0].cumulative_logprob)
+
+            local_probs = []
+            for prob in output.outputs[0].logprobs:
+                prob_dict = defaultdict(float)
+
+                for value in prob.values():
+                    prob_dict[value.decoded_token] += math.exp(value.logprob)
+
+                local_probs.append(dict(prob_dict))
+            token_probs.append(local_probs)
+
+        return ModelOutput(outputs, prompts, output_tokens, cum_probs, token_probs)
