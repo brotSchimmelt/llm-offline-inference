@@ -15,6 +15,7 @@ from outlines.integrations.transformers import (
 )
 from outlines.integrations.vllm import JSONLogitsProcessor, RegexLogitsProcessor
 from pydantic import BaseModel
+from transformers import AutoTokenizer
 from vllm.outputs import RequestOutput
 
 from .config import LOGGING, PROMPT_FORMATS, RANDOM_SEED, SUPPORTED_QUANTIZATION_MODES
@@ -313,6 +314,9 @@ class VLLM(LLM):
             trust_remote_code=self._settings.trust_remote_code,
             **kwargs,
         )
+
+        # load the tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(self._settings.model_path)
 
     def unpack_output(self, output: List[RequestOutput]) -> Union[List[str], List[List[str]]]:
         """
