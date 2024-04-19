@@ -25,8 +25,13 @@ dev = [
     "icecream"
 ]
 
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
 [tool.ruff]
 select = ["E", "F"]
+line-length = 100
 
 # Ignore `F401` violations in any `__init__.py`
 per-file-ignores = {"__init__.py" = ["F401"]}
