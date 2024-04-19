@@ -5,18 +5,57 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
+import numpy as np
+import pandas as pd
 from icecream import ic
 from pydantic import BaseModel
 
 from .config import LOGGING, PROMPT_FORMATS, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import validate_choice, validate_json
+from .utils import save_df_to_csv, validate_choice, validate_json
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
     ic.disable()
 logger = logging.getLogger(LOGGING["logger_name"])
 ##### SETUP LOGGING #####
+
+
+@dataclass
+class ModelOutput:
+    """Manages the output of a model, including prompts and probabilities.
+
+    Attributes:
+        output (List[str]): The model's output.
+        prompts (List[str]): The prompts used to generate the output.
+        output_tokens (List[List[int]]): The tokenized output.
+        cumulative_probabilities (List[float]): The cumulative probabilities of each output.
+        token_probabilities (List[Dict[str, float]]): The probabilities of each token.
+    """
+
+    output: List[str]
+    prompts: List[str]
+    output_tokens: List[List[int]]
+    cumulative_probabilities: List[float]
+    token_probabilities: List[List[Dict[str, float]]]
+
+    def __post_init__(self) -> None:
+        self.cumulative_probabilities = list(np.exp(self.cumulative_probabilities))
+
+    def convert_to_pd_dataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "outputs": self.output,
+                "prompts": self.prompts,
+                "output_tokens": self.output_tokens,
+                "cumulative_probabilities": self.cumulative_probabilities,
+                "token_probabilities": self.token_probabilities,
+            }
+        )
+
+    def write_to_csv(self, path: str) -> None:
+        df = self.convert_to_pd_dataframe()
+        save_df_to_csv(df, path, index=False)
 
 
 @dataclass
@@ -79,6 +118,12 @@ class LLM(ABC):
     @abstractmethod
     def unpack_output(self) -> Union[List[str], List[List[str]]]:
         """Unpack the model output."""
+        pass
+
+    @abstractmethod
+    def aggregate_outputs(self, outputs: Any) -> ModelOutput:
+        """Aggregate the model outputs into a single object with prompts, output and
+        probabilities."""
         pass
 
     def self_consistency_generate(
@@ -225,7 +270,7 @@ class LLM(ABC):
     def _post_process_model_output(
         self,
         outputs: List[Any],
-        return_string: bool,
+        return_type: str,
         json_schema: BaseModel = None,
         choices: List[str] = None,
     ) -> Union[List[str], List[Any]]:
@@ -235,7 +280,7 @@ class LLM(ABC):
 
         Args:
             outputs (List[Any]): Model output to post-process.
-            return_string (bool): Whether to return the output as a string.
+            return_type (str): Type of the model output.
             json_schema (BaseModel, optional): A Pydantic model representing a JSON
                 schema for guided generation. Defaults to None.
             choices (List[str], optional): A list of strings to guide the generation via
@@ -251,8 +296,10 @@ class LLM(ABC):
             logger.warning("Invalid model output found. See logs for details.")
             logger.info(f"Malformed output: {malformed}")
 
-        if return_string:
+        if return_type.lower() == "str":
             return unpacked_output
+        elif return_type.lower() == "model_output":
+            return self.aggregate_outputs(outputs)
         return outputs
 
     def get_model_settings(self) -> Dict[str, Any]:
