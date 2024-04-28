@@ -87,6 +87,7 @@ class VLLM(LLM):
         return_type: str = "str",
         json_schema: BaseModel = None,
         choices: List[str] = None,
+        custom_regex: str = None,
         batch_size: int = 0,
         use_tqdm: bool = True,
         system_prompt: str = None,
@@ -107,10 +108,14 @@ class VLLM(LLM):
                 schema for guided generation. Defaults to None.
             choices (List[str], optional): A list of strings to guide the generation via
                 regular expressions. Defaults to None.
+            custom_regex (str, optional): A custom regular expression to guide the generation.
+                Defaults to None.
             batch_size (int, optional): The number of prompts to process in each batch.
                 Use 0 for dynamic batching. Defaults to 0.
             use_tqdm (bool, optional): Whether to display a progress bar during
                 generation. Defaults to True.
+            system_prompt (str, optional): A system prompt to prepend to each input.
+                Defaults to None.
 
         Raises:
             ValueError: If both json_schema and choices are provided, or if an invalid
@@ -120,8 +125,8 @@ class VLLM(LLM):
             Union[List[str], List[RequestOutput]]: The generated text or structured
                 output based on return_type.
         """
-        if json_schema and choices:
-            raise ValueError("Cannot use guided generation for both JSON and RegEx.")
+        if sum(opt is not None for opt in [json_schema, choices, custom_regex]) > 1:
+            raise ValueError("Cannot use multiple guided generation methods.")
 
         if batch_size < 0 or not isinstance(batch_size, int):
             raise ValueError(f"Invalid batch size: {batch_size}. batch_size > 0!")
@@ -137,7 +142,7 @@ class VLLM(LLM):
 
         if json_schema or choices:
             sampling_params = self._configure_guided_generation(
-                sampling_params, json_schema, choices
+                sampling_params, json_schema, choices, custom_regex
             )
 
         if batch_size > 0:
@@ -224,6 +229,7 @@ class VLLM(LLM):
         sampling_params: vllm.SamplingParams,
         json_schema: BaseModel,
         choices: List[str],
+        custom_regex: str,
     ) -> vllm.SamplingParams:
         """
         Configures the sampling parameters for guided generation based on a JSON schema
@@ -235,6 +241,8 @@ class VLLM(LLM):
                 schema for guided generation. Defaults to None.
             choices (List[str], optional): A list of strings to guide the generation via
                 regular expressions. Defaults to None.
+            custom_regex (str, optional): A custom regular expression to guide the generation.
+                Defaults to None.
 
         Returns:
             vllm.SamplingParams: Updated sampling parameters with logits processors for
@@ -244,6 +252,9 @@ class VLLM(LLM):
             logits_processor = JSONLogitsProcessor(
                 schema=json_schema, llm=self.model, whitespace_pattern=r" ?"
             )
+
+        elif custom_regex:
+            logits_processor = RegexLogitsProcessor(regex_string=custom_regex, llm=self.model)
 
         else:
             choices_regex = "(" + "|".join([re.escape(c) for c in choices]) + ")"
