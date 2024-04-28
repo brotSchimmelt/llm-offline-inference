@@ -47,7 +47,7 @@ class ModelOutput:
             {
                 "outputs": self.output,
                 "prompts": self.prompts,
-                "output_tokens": self.output_tokens,
+                "output_token_ids": self.output_tokens,
                 "cumulative_probabilities": self.cumulative_probabilities,
                 "token_probabilities": self.token_probabilities,
             }
@@ -55,6 +55,10 @@ class ModelOutput:
 
     def write_to_csv(self, path: str) -> None:
         df = self.convert_to_pd_dataframe()
+
+        df["outputs"] = df["outputs"].str.replace("\n", " ", regex=False)
+        df["prompts"] = df["prompts"].str.replace("\n", " ", regex=False)
+
         save_df_to_csv(df, path, index=False)
 
 
