@@ -59,6 +59,7 @@ class VLLM(LLM):
             tensor_parallel_size=self._settings.num_gpus,
             quantization=self._settings.quant,
             trust_remote_code=self._settings.trust_remote_code,
+            max_logprobs=max_logprobs,
             **kwargs,
         )
 
