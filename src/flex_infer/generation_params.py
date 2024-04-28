@@ -17,7 +17,7 @@ class SamplingType(IntEnum):
 class GenerationParams:
     """Sampling parameters for text generation.
 
-    This is and adaptation of the `vllm.SamplingParams` class from
+    This is an adaptation of the `vllm.SamplingParams` class from
     https://github.com/vllm-project/vllm/blob/main/vllm/sampling_params.py.
 
     Overall, it follows the sampling parameters from the OpenAI text completion
@@ -137,18 +137,14 @@ class GenerationParams:
             )
         if not -2.0 <= self.frequency_penalty <= 2.0:
             raise ValueError(
-                "frequency_penalty must be in [-2, 2], got "
-                f"{self.frequency_penalty}."
+                "frequency_penalty must be in [-2, 2], got " f"{self.frequency_penalty}."
             )
         if not 0.0 < self.repetition_penalty <= 2.0:
             raise ValueError(
-                "repetition_penalty must be in (0, 2], got "
-                f"{self.repetition_penalty}."
+                "repetition_penalty must be in (0, 2], got " f"{self.repetition_penalty}."
             )
         if self.temperature < 0.0:
-            raise ValueError(
-                f"temperature must be non-negative, got {self.temperature}."
-            )
+            raise ValueError(f"temperature must be non-negative, got {self.temperature}.")
         if not 0.0 < self.top_p <= 1.0:
             raise ValueError(f"top_p must be in (0, 1], got {self.top_p}.")
         if self.top_k < -1:
@@ -160,9 +156,7 @@ class GenerationParams:
         if self.logprobs is not None and self.logprobs < 0:
             raise ValueError(f"logprobs must be non-negative, got {self.logprobs}.")
         if self.prompt_logprobs is not None and self.prompt_logprobs < 0:
-            raise ValueError(
-                f"prompt_logprobs must be non-negative, got {self.prompt_logprobs}."
-            )
+            raise ValueError(f"prompt_logprobs must be non-negative, got {self.prompt_logprobs}.")
 
     def _verify_beam_search(self) -> None:
         if self.best_of == 1:
@@ -184,15 +178,11 @@ class GenerationParams:
         if self.early_stopping is not False:
             raise ValueError("early_stopping must be False when not using beam search.")
         if self.length_penalty != 1.0:
-            raise ValueError(
-                "length_penalty and must be 1.0 when not using beam search."
-            )
+            raise ValueError("length_penalty and must be 1.0 when not using beam search.")
 
     def _verify_greedy_sampling(self) -> None:
         if self.best_of > 1:
-            raise ValueError(
-                f"best_of must be 1 when using greedy sampling, got {self.best_of}."
-            )
+            raise ValueError(f"best_of must be 1 when using greedy sampling, got {self.best_of}.")
 
     def get_vllm_params(self) -> Dict[str, Any]:
         """Returns the parameters in a format that is compatible to vLLM."""
