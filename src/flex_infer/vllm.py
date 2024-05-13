@@ -265,12 +265,12 @@ class VLLM(LLM):
         return sampling_params
 
     def aggregate_outputs(self, raw_outputs: List[RequestOutput]) -> ModelOutput:
-        prompts, outputs, output_tokens, cum_probs, token_probs = [], [], [], [], []
+        prompts, outputs, output_token_ids, cum_probs, token_probs = [], [], [], [], []
 
         for output in raw_outputs:
             prompts.append(output.prompt)
             outputs.append(output.outputs[0].text)
-            output_tokens.append(output.outputs[0].token_ids)
+            output_token_ids.append(output.outputs[0].token_ids)
             cum_probs.append(output.outputs[0].cumulative_logprob)
 
             local_probs = []
@@ -283,4 +283,4 @@ class VLLM(LLM):
                 local_probs.append(dict(prob_dict))
             token_probs.append(local_probs)
 
-        return ModelOutput(outputs, prompts, output_tokens, cum_probs, token_probs)
+        return ModelOutput(outputs, prompts, output_token_ids, cum_probs, token_probs)
