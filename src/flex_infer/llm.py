@@ -1,9 +1,10 @@
+import ast
 import logging
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -129,6 +130,46 @@ class LLM(ABC):
         """Aggregate the model outputs into a single object with prompts, output and
         probabilities."""
         pass
+
+    def convert_output_str_to_json(
+        self, model_output: ModelOutput
+    ) -> Dict[str, Union[List[Optional[Dict[str, str]]], List[bool]]]:
+        """
+        Converts output strings from a model into JSON format and checks for their validity.
+
+        This function processes a list of output strings, attempting to convert each into a Python
+        dictionary if it is valid JSON. Outputs that are not valid JSON are recorded as `None`. The
+        validity of each output string is also tracked.
+
+        Args:
+            model_output (ModelOutput): An object containing the output from a model, typically as
+                a list of serialized JSON strings.
+
+        Returns:
+            Dict[str, Union[List[Optional[Dict[str, str]]], List[bool]]]: A dictionary containing:
+                - "original_output": The original list of output strings.
+                - "json_output": A list of dictionaries parsed from valid JSON strings or `None` for
+                    invalid ones.
+                - "valid_json_mask": A list of booleans indicating the validity of each output
+                    string as JSON.
+        """
+        original_output = model_output.output
+        json_output, valid_json_mask = [], []
+
+        for idx, output in enumerate(original_output):
+            is_valid_json = validate_json(output)
+            if is_valid_json:
+                json_output.append(ast.literal_eval(output))
+            else:
+                json_output.append(None)
+
+            valid_json_mask.append(is_valid_json)
+
+        return {
+            "original_output": original_output,
+            "json_output": json_output,
+            "valid_json_mask": valid_json_mask,
+        }
 
     def self_consistency_generate(
         self,
