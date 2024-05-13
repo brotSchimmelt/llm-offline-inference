@@ -5,9 +5,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from .utils import is_valid_binary_sequence
 
 
-def evaluate_binary_classification(
-    y_true: List[int], y_pred: List[int]
-) -> Dict[str, float]:
+def evaluate_binary_classification(y_true: List[int], y_pred: List[int]) -> Dict[str, float]:
     """
     Evaluates the performance of a binary classification model on given true labels and
     predictions.

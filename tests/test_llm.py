@@ -36,9 +36,7 @@ def test_format_prompts_with_system_prompt(valid_llm):
     template = valid_llm.system_prompt_template
     system_prompt = "I am a system prompt"
     prompts = ["Test prompt 1", "Test prompt 2"]
-    expected = [
-        template.format(system_prompt=system_prompt, prompt=p.strip()) for p in prompts
-    ]
+    expected = [template.format(system_prompt=system_prompt, prompt=p.strip()) for p in prompts]
     assert valid_llm.format_prompts(prompts, system_prompt=system_prompt) == expected
 
 
