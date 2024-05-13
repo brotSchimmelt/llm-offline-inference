@@ -243,6 +243,38 @@ class LLM(ABC):
 
         return result
 
+    def find_answer_token_probability(
+        self, model_output: ModelOutput, answer_choices: List[str]
+    ) -> Union[None, Dict[str, float]]:
+        """
+        Identifies and returns the probability of the first token in the model's output that matches
+        any of the specified answer choices.
+
+        Args:
+            model_output (ModelOutput): Contains tokens and their probabilities as output by the
+                model.
+            answer_choices (List[str]): A list of strings that represent possible answers to search
+                within the tokens.
+
+        Returns:
+            Union[None, Dict[str, float]]: A dictionary with the matched token as the key and its
+                probability as the value, or None if no matching token is found.
+        """
+        if isinstance(answer_choices, str):
+            answer_choices = [answer_choices]
+
+        answer_token_ids = model_output.output_tokens
+        probabilities_for_answer_tokens = model_output.token_probabilities
+
+        for idx, token in enumerate(answer_token_ids):
+            decoded_token = self.tokenizer.decode(token).strip()
+
+            for choice in answer_choices:
+                if decoded_token in choice:
+                    return probabilities_for_answer_tokens[idx]
+
+        return None
+
     def format_prompts(
         self, prompts: Union[List[str], str], system_prompt: str = None
     ) -> List[str]:
