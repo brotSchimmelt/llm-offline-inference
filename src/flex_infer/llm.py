@@ -245,7 +245,7 @@ class LLM(ABC):
 
     def find_answer_token_probability_distribution(
         self, model_output: ModelOutput, answer_choices: List[str]
-    ) -> Union[None, Dict[str, float]]:
+    ) -> List[Dict[str, float]]:
         """
         Identifies and returns the probability of the first token in the model's output that matches
         any of the specified answer choices.
@@ -257,23 +257,57 @@ class LLM(ABC):
                 within the tokens.
 
         Returns:
-            Union[None, Dict[str, float]]: A dictionary with the matched token as the key and its
-                probability as the value, or None if no matching token is found.
+            List[Dict[str, float]]: A list of all token probabilities that match any of the answer
+                labels.
         """
         if isinstance(answer_choices, str):
             answer_choices = [answer_choices]
 
-        answer_token_ids = model_output.output_tokens
-        probabilities_for_answer_tokens = model_output.token_probabilities
+        results = []
+        for token_ids, prob in zip(model_output.output_tokens, model_output.token_probabilities):
+            for idx, token in enumerate(token_ids):
+                decoded_token = self.tokenizer.decode(token).strip()
 
-        for idx, token in enumerate(answer_token_ids):
-            decoded_token = self.tokenizer.decode(token).strip()
+                for choice in answer_choices:
+                    if decoded_token in choice:
+                        results.append(prob[idx])
 
-            for choice in answer_choices:
-                if decoded_token in choice:
-                    return probabilities_for_answer_tokens[idx]
+        return results
 
-        return None
+    def get_output_distribution(
+        self, model_output: ModelOutput, answer_choices: List[str]
+    ) -> List[Dict[str, float]]:
+        """
+        Computes and returns a list of dictionaries representing the probability distribution over
+        provided answer choices based on the tokens and their probabilities from the model output.
+
+        Args:
+            model_output (ModelOutput): Contains tokens and their probabilities as output by the
+                model.
+            answer_choices (List[str]): A list of strings that represent possible answers to
+                evaluate against the tokens.
+
+        Returns:
+            List[Dict[str, float]]: Each dictionary in the list corresponds to a set of answer
+                choices and their cumulative probabilities calculated from the model's token
+                outputs.
+        """
+        answer_token_distribution = self.find_answer_token_probability_distribution(
+            model_output, answer_choices
+        )
+
+        results = []
+        for token_probabilities in answer_token_distribution:
+            prediction = {label: 0.0 for label in answer_choices}
+
+            for token, token_probability in token_probabilities.items():
+                for choice in answer_choices:
+                    if token and token in choice:
+                        prediction[choice] += token_probability
+
+            results.append(prediction)
+
+        return results
 
     def format_prompts(
         self, prompts: Union[List[str], str], system_prompt: str = None
