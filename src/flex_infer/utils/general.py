@@ -40,7 +40,7 @@ def get_time(func: Callable) -> Callable:
     return wrapper
 
 
-def validate_json(json_string: str) -> bool:
+def is_valid_json(json_string: str) -> bool:
     """
     Validates whether the given string is a properly formatted JSON.
 
