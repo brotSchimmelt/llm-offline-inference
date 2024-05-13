@@ -140,7 +140,7 @@ class VLLM(LLM):
         ic(prompts[0])
         logger.info(f"First formatted prompt: {prompts[0]}")
 
-        if json_schema or choices:
+        if json_schema or choices or custom_regex:
             sampling_params = self._configure_guided_generation(
                 sampling_params, json_schema, choices, custom_regex
             )
