@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from .config import LOGGING, PROMPT_FORMATS, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import save_df_to_csv, validate_choice, validate_json
+from .utils import is_valid_json, save_df_to_csv, validate_choice
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
@@ -133,42 +133,38 @@ class LLM(ABC):
 
     def convert_output_str_to_json(
         self, model_output: ModelOutput
-    ) -> Dict[str, Union[List[Optional[Dict[str, str]]], List[bool]]]:
+    ) -> Dict[str, Union[List[Optional[Dict[str, any]]], List[str]]]:
         """
-        Converts output strings from a model into JSON format and checks for their validity.
+        Converts output strings from a model into JSON format and assesses their validity.
 
-        This function processes a list of output strings, attempting to convert each into a Python
-        dictionary if it is valid JSON. Outputs that are not valid JSON are recorded as `None`. The
-        validity of each output string is also tracked.
+        This method processes a list of output strings from a model, attempting to parse each as a
+        Python dictionary if it represents valid JSON. Outputs that are not valid JSON are recorded
+        as `None` in the `json_output` list and are also collected into the `invalid_outputs` list.
 
         Args:
-            model_output (ModelOutput): An object containing the output from a model, typically as
-                a list of serialized JSON strings.
+            model_output (ModelOutput): An object containing the model's output, typically
+                represented as a list of serialized JSON strings.
 
         Returns:
-            Dict[str, Union[List[Optional[Dict[str, str]]], List[bool]]]: A dictionary containing:
-                - "original_output": The original list of output strings.
-                - "json_output": A list of dictionaries parsed from valid JSON strings or `None` for
-                    invalid ones.
-                - "valid_json_mask": A list of booleans indicating the validity of each output
-                    string as JSON.
+            Dict[str, Union[List[Optional[Dict[str, any]]], List[str]]]: A dictionary with two
+                key-value pairs:
+                - "json_output": A list where each element is a dictionary parsed from valid JSON
+                strings, or `None` for strings that could not be validated as JSON.
+                - "invalid_outputs": A list of strings that could not be validated as JSON.
         """
         original_output = model_output.output
-        json_output, valid_json_mask = [], []
+        json_output, invalid_outputs = [], []
 
-        for idx, output in enumerate(original_output):
-            is_valid_json = validate_json(output)
-            if is_valid_json:
+        for output in original_output:
+            if is_valid_json(output):
                 json_output.append(ast.literal_eval(output))
             else:
                 json_output.append(None)
-
-            valid_json_mask.append(is_valid_json)
+                invalid_outputs.append(output)
 
         return {
-            "original_output": original_output,
             "json_output": json_output,
-            "valid_json_mask": valid_json_mask,
+            "invalid_outputs": invalid_outputs,
         }
 
     def self_consistency_generate(
@@ -299,7 +295,7 @@ class LLM(ABC):
         for output_idx, inner_output in enumerate(output):
             for candidate_idx, o in enumerate(inner_output):
                 if json_schema:
-                    if not validate_json(o):
+                    if not is_valid_json(o):
                         malformed.append((output_idx, candidate_idx, o))
                 elif choices:
                     if not validate_choice(o, choices):
