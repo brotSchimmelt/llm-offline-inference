@@ -243,7 +243,7 @@ class LLM(ABC):
 
         return result
 
-    def find_answer_token_probability(
+    def find_answer_token_probability_distribution(
         self, model_output: ModelOutput, answer_choices: List[str]
     ) -> Union[None, Dict[str, float]]:
         """
