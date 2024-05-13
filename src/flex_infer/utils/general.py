@@ -1,4 +1,4 @@
-import json
+import ast
 import logging
 import os
 from functools import wraps
@@ -56,9 +56,9 @@ def validate_json(json_string: str) -> bool:
         return False
 
     try:
-        json.loads(json_string)
-        return True
-    except json.JSONDecodeError:
+        obj = ast.literal_eval(json_string)
+        return isinstance(obj, dict)
+    except (SyntaxError, ValueError):
         return False
 
 
@@ -97,9 +97,7 @@ def is_valid_binary_sequence(seq: List[int]) -> bool:
     Returns:
         bool: True if valid, False otherwise.
     """
-    return all(isinstance(item, int) for item in seq) and all(
-        item in [0, 1] for item in seq
-    )
+    return all(isinstance(item, int) for item in seq) and all(item in [0, 1] for item in seq)
 
 
 def save_df_to_csv(df: pd.DataFrame, file_path: str, index: bool = False) -> None:
