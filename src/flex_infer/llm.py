@@ -286,10 +286,7 @@ class LLM(ABC):
 
         results = []
         for row, token_ids in enumerate(model_output.output_token_ids):
-            # list_of_tokens = self.tokenizer.convert_ids_to_tokens(token_ids)
             list_of_tokens = [self.tokenizer.decode(t).strip() for t in token_ids]
-
-            test_len = len(results)
 
             for idx, token in enumerate(list_of_tokens):
                 if token in "".join(answer_choices):
@@ -298,16 +295,6 @@ class LLM(ABC):
                     # decided the answer at that point
                     break
 
-            if test_len == len(results):
-                print(f"ERROR: tokens not found in answer choices: {list_of_tokens}")
-                print(f"ERROR Output: {model_output.output[row]}")
-
-                new_list_of_tokens = []
-                for token_id in token_ids:
-                    decoded_token = self.tokenizer.decode(token_id).strip()
-                    new_list_of_tokens.append(decoded_token)
-                print(f"Newly decoded tokens: {new_list_of_tokens}")
-
         if len(results) != len(model_output.output):
             raise ValueError(
                 f"The number of token distributions ({len(results)}) does not match "
@@ -315,25 +302,6 @@ class LLM(ABC):
             )
 
         return results
-
-        # results = []
-        # for token_ids, token_logprobs in zip(
-        #     model_output.output_token_ids, model_output.token_probabilities
-        # ):
-        #     token_prob_dist = []
-        #     for idx, token_id in enumerate(token_ids):
-        #         decoded_token = self.tokenizer.decode(token_id).strip()
-
-        #         for choice in answer_choices:
-        #             if decoded_token in choice:
-        #                 token_prob_dist.append(token_logprobs[idx])
-
-        #     if len(token_prob_dist) > 1:
-        #         raise ValueError(f"Multiple tokens found in answer choices: {token_prob_dist}")
-
-        #     results.extend(token_prob_dist)
-
-        # return results
 
     def get_output_distribution(
         self, model_output: ModelOutput, answer_choices: List[str]
