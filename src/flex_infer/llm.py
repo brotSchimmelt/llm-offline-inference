@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from .config import LOGGING, PROMPT_FORMATS, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import is_valid_json, save_df_to_csv, validate_choice
+from .utils import correct_json_output, is_valid_json, save_df_to_csv, validate_choice
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
@@ -29,14 +29,21 @@ class ModelOutput:
     Attributes:
         output (List[str]): The model's output.
         prompts (List[str]): The prompts used to generate the output.
-        output_tokens (List[List[int]]): The tokenized output.
+        output_token_ids (List[List[int]]): List of token IDs for the output.
         cumulative_probabilities (List[float]): The cumulative probabilities of each output.
         token_probabilities (List[Dict[str, float]]): The probabilities of each token.
+
+    Examples:
+        token_probabilities for 1 output with number of logprobs set to 2:
+        >>> token_probabilities[0] -> [{'pred': 0.95633781516, 'pre': 0.0337628525670}, {...}]
+
+        token_probabilities for the n-th token of the m-th generated output:
+        >>> token_probabilities[m][n] -> {'pred': 0.95633781516, 'pre': 0.0337628525670}
     """
 
     output: List[str]
     prompts: List[str]
-    output_tokens: List[List[int]]
+    output_token_ids: List[List[int]]
     cumulative_probabilities: List[float]
     token_probabilities: List[List[Dict[str, float]]]
 
@@ -48,7 +55,7 @@ class ModelOutput:
             {
                 "outputs": self.output,
                 "prompts": self.prompts,
-                "output_token_ids": self.output_tokens,
+                "output_token_ids": self.output_token_ids,
                 "cumulative_probabilities": self.cumulative_probabilities,
                 "token_probabilities": self.token_probabilities,
             }
@@ -167,6 +174,20 @@ class LLM(ABC):
             "invalid_outputs": invalid_outputs,
         }
 
+    def convert_output_str_to_json_2(self, model_output: ModelOutput):
+        original_output = model_output.output
+        json_output = correct_json_output(original_output)
+
+        invalid_outputs = []
+        for idx, output in enumerate(json_output):
+            if isinstance(output, str):
+                invalid_outputs.append(original_output[idx])
+
+        return {
+            "json_output": json_output,
+            "invalid_outputs": invalid_outputs,
+        }
+
     def self_consistency_generate(
         self,
         prompts: Union[List[str], str],
@@ -243,7 +264,7 @@ class LLM(ABC):
 
         return result
 
-    def find_answer_token_probability_distribution(
+    def _find_answer_token_probability_distribution(
         self, model_output: ModelOutput, answer_choices: List[str]
     ) -> List[Dict[str, float]]:
         """
@@ -257,22 +278,62 @@ class LLM(ABC):
                 within the tokens.
 
         Returns:
-            List[Dict[str, float]]: A list of all token probabilities that match any of the answer
-                labels.
+            List[Dict[str, float]]: A list of all token probabilities that match any of the
+                answer labels.
         """
         if isinstance(answer_choices, str):
             answer_choices = [answer_choices]
 
         results = []
-        for token_ids, prob in zip(model_output.output_tokens, model_output.token_probabilities):
-            for idx, token in enumerate(token_ids):
-                decoded_token = self.tokenizer.decode(token).strip()
+        for row, token_ids in enumerate(model_output.output_token_ids):
+            # list_of_tokens = self.tokenizer.convert_ids_to_tokens(token_ids)
+            list_of_tokens = [self.tokenizer.decode(t).strip() for t in token_ids]
 
-                for choice in answer_choices:
-                    if decoded_token in choice:
-                        results.append(prob[idx])
+            test_len = len(results)
+
+            for idx, token in enumerate(list_of_tokens):
+                if token in "".join(answer_choices):
+                    results.append(model_output.token_probabilities[row][idx])
+                    # we only care for the first token that matches the answer since the llm already
+                    # decided the answer at that point
+                    break
+
+            if test_len == len(results):
+                print(f"ERROR: tokens not found in answer choices: {list_of_tokens}")
+                print(f"ERROR Output: {model_output.output[row]}")
+
+                new_list_of_tokens = []
+                for token_id in token_ids:
+                    decoded_token = self.tokenizer.decode(token_id).strip()
+                    new_list_of_tokens.append(decoded_token)
+                print(f"Newly decoded tokens: {new_list_of_tokens}")
+
+        if len(results) != len(model_output.output):
+            raise ValueError(
+                f"The number of token distributions ({len(results)}) does not match "
+                f"the number of outputs ({len(model_output.output)})."
+            )
 
         return results
+
+        # results = []
+        # for token_ids, token_logprobs in zip(
+        #     model_output.output_token_ids, model_output.token_probabilities
+        # ):
+        #     token_prob_dist = []
+        #     for idx, token_id in enumerate(token_ids):
+        #         decoded_token = self.tokenizer.decode(token_id).strip()
+
+        #         for choice in answer_choices:
+        #             if decoded_token in choice:
+        #                 token_prob_dist.append(token_logprobs[idx])
+
+        #     if len(token_prob_dist) > 1:
+        #         raise ValueError(f"Multiple tokens found in answer choices: {token_prob_dist}")
+
+        #     results.extend(token_prob_dist)
+
+        # return results
 
     def get_output_distribution(
         self, model_output: ModelOutput, answer_choices: List[str]
@@ -292,20 +353,22 @@ class LLM(ABC):
                 choices and their cumulative probabilities calculated from the model's token
                 outputs.
         """
-        answer_token_distribution = self.find_answer_token_probability_distribution(
+
+        # List[Dict[str, float]]
+        answer_token_distributions = self._find_answer_token_probability_distribution(
             model_output, answer_choices
         )
 
         results = []
-        for token_probabilities in answer_token_distribution:
-            prediction = {label: 0.0 for label in answer_choices}
+        for token_probability_distribution in answer_token_distributions:
+            aggregated_distribution = {label: 0.0 for label in answer_choices}
 
-            for token, token_probability in token_probabilities.items():
+            for token, prob in token_probability_distribution.items():
                 for choice in answer_choices:
                     if token and token in choice:
-                        prediction[choice] += token_probability
+                        aggregated_distribution[choice] += prob
 
-            results.append(prediction)
+            results.append(aggregated_distribution)
 
         return results
 
