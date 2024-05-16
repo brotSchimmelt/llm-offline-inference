@@ -1,9 +1,11 @@
 import ast
+import json
 import logging
 import os
+import re
 from functools import wraps
 from time import perf_counter
-from typing import Any, Callable, List
+from typing import Any, Callable, Dict, List
 
 import pandas as pd
 
@@ -120,3 +122,62 @@ def save_df_to_csv(df: pd.DataFrame, file_path: str, index: bool = False) -> Non
         file_path += ".csv"
 
     df.to_csv(file_path, index=index)
+
+
+def correct_json_output(outputs: List[str]) -> Dict:
+    """
+    Corrects a list of JSON output strings and returns a list of dictionaries.
+
+    Args:
+        outputs (List[str]): A list of JSON strings to be corrected.
+
+    Returns:
+        List[Dict]: A list of dictionaries with the corrected JSON strings, or empty dictionaries if
+            all fail.
+    """
+    if not isinstance(outputs, list):
+        outputs = [outputs]
+
+    def fix_json_string(json_string: str) -> str:
+        """Try to fix a JSON string that is not properly formatted."""
+        # remove extra whitespace and newlines
+        json_string = re.sub(r"\s+", " ", json_string).strip()
+
+        # fix unclosed braces
+        if not json_string.startswith("{"):
+            json_string = "{" + json_string
+        if not json_string.endswith("}"):
+            json_string = json_string + "}"
+
+        # remove extra commas before closing braces
+        json_string = re.sub(r",\s*([}\]])", r"\1", json_string)
+
+        # ensure proper key-value structure with quoted keys and values
+        json_string = re.sub(r"([,{]\s*)(\w+)(\s*:)", r'\1"\2"\3', json_string)
+
+        # ensure values are quoted properly
+        json_string = re.sub(r'(:\s*")([^"]*?)(\s*[,}])', r'\1\2"\3', json_string)
+
+        # fix any unclosed string values (e.g., missing closing quote)
+        matches = re.findall(r'":\s*"[^"]*$', json_string)
+        if matches:
+            json_string = re.sub(r'(": "[^"]*)$', r'\1"', json_string)
+
+        return json_string
+
+    fixed_outputs = []
+    for output in outputs:
+        try:
+            parsed_output = json.loads(output)
+        except json.JSONDecodeError:
+            corrected_output = fix_json_string(output)
+
+            try:
+                parsed_output = json.loads(corrected_output)
+            except json.JSONDecodeError:
+                # return string as is if it still fails
+                parsed_output = output
+
+        fixed_outputs.append(parsed_output)
+
+    return fixed_outputs
