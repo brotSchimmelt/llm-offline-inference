@@ -1,10 +1,9 @@
-import ast
 import logging
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
