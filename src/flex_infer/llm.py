@@ -286,10 +286,10 @@ class LLM(ABC):
 
         results = []
         for row, token_ids in enumerate(model_output.output_token_ids):
-            list_of_tokens = [self.tokenizer.decode(t).strip() for t in token_ids]
+            list_of_tokens = [self.tokenizer.decode(t) for t in token_ids]
 
             for idx, token in enumerate(list_of_tokens):
-                if token in "".join(answer_choices):
+                if token and token in "".join(answer_choices):
                     results.append(model_output.token_probabilities[row][idx])
                     # we only care for the first token that matches the answer since the llm already
                     # decided the answer at that point
