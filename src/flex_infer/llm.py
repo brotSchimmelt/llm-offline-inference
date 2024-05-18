@@ -140,41 +140,20 @@ class LLM(ABC):
 
     def convert_output_str_to_json(
         self, model_output: ModelOutput
-    ) -> Dict[str, Union[List[Optional[Dict[str, any]]], List[str]]]:
+    ) -> Dict[str, List[Union[str, Dict[str, str]]]]:
         """
-        Converts output strings from a model into JSON format and assesses their validity.
-
-        This method processes a list of output strings from a model, attempting to parse each as a
-        Python dictionary if it represents valid JSON. Outputs that are not valid JSON are recorded
-        as `None` in the `json_output` list and are also collected into the `invalid_outputs` list.
+        Converts the output string from a model to a JSON format and identifies invalid outputs.
 
         Args:
-            model_output (ModelOutput): An object containing the model's output, typically
-                represented as a list of serialized JSON strings.
+            model_output (ModelOutput): An object containing the output string from a model.
 
         Returns:
-            Dict[str, Union[List[Optional[Dict[str, any]]], List[str]]]: A dictionary with two
-                key-value pairs:
-                - "json_output": A list where each element is a dictionary parsed from valid JSON
-                strings, or `None` for strings that could not be validated as JSON.
-                - "invalid_outputs": A list of strings that could not be validated as JSON.
+            Dict[str, List[Union[str, Dict[str, str]]]]: A dictionary with two keys:
+                - "json_output": A list of the correctly formatted JSON outputs. Each element is
+                    either a string or a dictionary with string keys and values.
+                - "invalid_outputs": A list of the original outputs that could not be converted to
+                    JSON, retaining their original string format.
         """
-        original_output = model_output.output
-        json_output, invalid_outputs = [], []
-
-        for output in original_output:
-            if is_valid_json(output):
-                json_output.append(ast.literal_eval(output))
-            else:
-                json_output.append(None)
-                invalid_outputs.append(output)
-
-        return {
-            "json_output": json_output,
-            "invalid_outputs": invalid_outputs,
-        }
-
-    def convert_output_str_to_json_2(self, model_output: ModelOutput):
         original_output = model_output.output
         json_output = correct_json_output(original_output)
 
