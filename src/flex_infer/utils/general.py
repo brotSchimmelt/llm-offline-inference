@@ -124,7 +124,7 @@ def save_df_to_csv(df: pd.DataFrame, file_path: str, index: bool = False) -> Non
     df.to_csv(file_path, index=index)
 
 
-def correct_json_output(outputs: List[str]) -> Dict:
+def correct_json_output(outputs: List[str]) -> List[Dict[str, Any]]:
     """
     Corrects a list of JSON output strings and returns a list of dictionaries.
 
