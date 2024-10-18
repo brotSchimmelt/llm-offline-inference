@@ -74,6 +74,8 @@ class GenerationParams:
         ignore_eos: Whether to ignore the EOS token and continue generating
             tokens after the EOS token is generated.
         max_tokens: Maximum number of tokens to generate per output sequence.
+        min_tokens: Minimum number of tokens to generate per output sequence
+            before EOS or stop_token_ids can be generated
         logprobs: Number of log probabilities to return per output token.
             Note that the implementation follows the OpenAI API: The return
             result includes the log probabilities on the `logprobs` most likely
@@ -104,6 +106,7 @@ class GenerationParams:
     include_stop_str_in_output: bool = False
     ignore_eos: bool = False
     max_tokens: Optional[int] = 16
+    min_tokens: int = 0
     logprobs: Optional[int] = None
     prompt_logprobs: Optional[int] = None
     skip_special_tokens: bool = True
@@ -157,6 +160,10 @@ class GenerationParams:
             raise ValueError(f"logprobs must be non-negative, got {self.logprobs}.")
         if self.prompt_logprobs is not None and self.prompt_logprobs < 0:
             raise ValueError(f"prompt_logprobs must be non-negative, got {self.prompt_logprobs}.")
+        if self.min_tokens < 0:
+            raise ValueError(
+                f"min_tokens must be greater than or equal to 0, " f"got {self.min_tokens}."
+            )
 
     def _verify_beam_search(self) -> None:
         if self.best_of == 1:
