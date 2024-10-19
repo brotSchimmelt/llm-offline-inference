@@ -12,7 +12,13 @@ from pydantic import BaseModel
 
 from .config import LOGGING, PROMPT_FORMATS, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import correct_json_output, is_valid_json, save_df_to_csv, validate_choice
+from .utils import (
+    correct_json_output,
+    correct_json_output_with_library,
+    is_valid_json,
+    save_df_to_csv,
+    validate_choice,
+)
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
@@ -154,7 +160,8 @@ class LLM(ABC):
                     JSON, retaining their original string format.
         """
         original_output = model_output.output
-        json_output = correct_json_output(original_output)
+        # json_output = correct_json_output(original_output)
+        json_output = correct_json_output_with_library(original_output)
 
         invalid_outputs = []
         for idx, output in enumerate(json_output):

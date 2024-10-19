@@ -5,8 +5,9 @@ import os
 import re
 from functools import wraps
 from time import perf_counter
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
+import json_repair
 import pandas as pd
 
 from flex_infer.config import LOGGING
@@ -181,3 +182,43 @@ def correct_json_output(outputs: List[str]) -> List[Dict[str, Any]]:
         fixed_outputs.append(parsed_output)
 
     return fixed_outputs
+
+
+def correct_json_output_with_library(outputs: List[str]) -> Union[Dict[str, str], str]:
+    """
+    Attempts to correct a list of malformed JSON strings and returns either the corrected JSON
+    or the original string if correction fails. The function expects a list of strings where each
+    string is a potential JSON output that may require fixing.
+
+    Args:
+        outputs (List[str]): A list of strings, each of which is expected to be a JSON object
+                             in string form. These strings may be malformed and require repair.
+
+    Raises:
+        TypeError: Raised if any element in the input list is not of type `str`.
+
+    Returns:
+        Union[Dict[str, str], str]: A list of corrected JSON outputs, where each corrected output
+                                    is returned as a dictionary. If a string cannot be corrected,
+                                    the original string is returned in place of the dictionary.
+                                    The function returns a list of dictionaries and strings.
+    """
+    if not isinstance(outputs, list):
+        outputs = [outputs]
+
+    for out in outputs:
+        if not isinstance(out, str):
+            raise TypeError(f"Output must be a string. Found {type(out)}.")
+
+    corrected_outputs = []
+    for idx, out in enumerate(outputs):
+        fixed_json = json_repair.loads(out)
+
+        if fixed_json is None:
+            # if correction failed, return the original string
+            corrected_outputs.append(outputs[idx])
+        else:
+            # if correction succeeded, return the corrected JSON as dictionary
+            corrected_outputs.append(fixed_json)
+
+    return corrected_outputs

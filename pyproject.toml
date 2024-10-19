@@ -17,6 +17,7 @@ dependencies = [
     "numpy",
     "pandas",
     "scikit-learn",
+    "json_repair",
 ]
 
 [project.optional-dependencies]
