@@ -419,6 +419,9 @@ class LLM(ABC):
         """
         unpacked_output = self.unpack_output(outputs)
 
+        # go over output and correct JSON output; if not JSON, return the original string output
+        unpacked_output = correct_json_output_with_library(unpacked_output)
+
         valid, malformed = self.validate_model_output(unpacked_output, json_schema, choices)
         if not valid:
             logger.warning("Invalid model output found. See logs for details.")

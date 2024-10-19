@@ -184,7 +184,7 @@ def correct_json_output(outputs: List[str]) -> List[Dict[str, Any]]:
     return fixed_outputs
 
 
-def correct_json_output_with_library(outputs: List[str]) -> Union[Dict[str, str], str]:
+def correct_json_output_with_library(outputs: List[str]) -> List[Union[Dict[str, str], str]]:
     """
     Attempts to correct a list of malformed JSON strings and returns either the corrected JSON
     or the original string if correction fails. The function expects a list of strings where each
