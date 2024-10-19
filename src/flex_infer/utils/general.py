@@ -206,15 +206,16 @@ def correct_json_output_with_library(outputs: List[str]) -> List[Union[Dict[str,
     if not isinstance(outputs, list):
         outputs = [outputs]
 
-    for out in outputs:
-        if not isinstance(out, str):
-            raise TypeError(f"Output must be a string. Found {type(out)}.")
-
     corrected_outputs = []
     for idx, out in enumerate(outputs):
+        # if the output is already a dictionary, skip correction and return dictionary
+        if isinstance(out, dict):
+            corrected_outputs.append(out)
+            continue
+
         fixed_json = json_repair.loads(out)
 
-        if fixed_json is None:
+        if isinstance(fixed_json, str):
             # if correction failed, return the original string
             corrected_outputs.append(outputs[idx])
         else:

@@ -160,7 +160,6 @@ class LLM(ABC):
                     JSON, retaining their original string format.
         """
         original_output = model_output.output
-        # json_output = correct_json_output(original_output)
         json_output = correct_json_output_with_library(original_output)
 
         invalid_outputs = []
@@ -382,7 +381,8 @@ class LLM(ABC):
         for output_idx, inner_output in enumerate(output):
             for candidate_idx, o in enumerate(inner_output):
                 if json_schema:
-                    if not is_valid_json(o):
+                    x = str(correct_json_output_with_library([o]))
+                    if not is_valid_json(x):
                         malformed.append((output_idx, candidate_idx, o))
                 elif choices:
                     if not validate_choice(o, choices):
@@ -418,9 +418,6 @@ class LLM(ABC):
             Union[List[str], List[Any]]: The post-processed model output.
         """
         unpacked_output = self.unpack_output(outputs)
-
-        # go over output and correct JSON output; if not JSON, return the original string output
-        unpacked_output = correct_json_output_with_library(unpacked_output)
 
         valid, malformed = self.validate_model_output(unpacked_output, json_schema, choices)
         if not valid:
