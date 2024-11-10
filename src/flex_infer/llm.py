@@ -420,9 +420,9 @@ class LLM(ABC):
         unpacked_output = self.unpack_output(outputs)
 
         valid, malformed = self.validate_model_output(unpacked_output, json_schema, choices)
-        if not valid:
-            logger.warning("Invalid model output found. See logs for details.")
-            logger.info(f"Malformed output: {malformed}")
+        # if not valid:
+        # logger.warning("Invalid model output found. See logs for details.")
+        # logger.info(f"Malformed output: {malformed}")
 
         if return_type.lower() == "str":
             return unpacked_output
