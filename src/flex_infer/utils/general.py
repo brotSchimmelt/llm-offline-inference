@@ -5,8 +5,9 @@ import os
 import re
 from functools import wraps
 from time import perf_counter
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
+import json_repair
 import pandas as pd
 
 from flex_infer.config import LOGGING
@@ -124,7 +125,7 @@ def save_df_to_csv(df: pd.DataFrame, file_path: str, index: bool = False) -> Non
     df.to_csv(file_path, index=index)
 
 
-def correct_json_output(outputs: List[str]) -> Dict:
+def correct_json_output(outputs: List[str]) -> List[Dict[str, Any]]:
     """
     Corrects a list of JSON output strings and returns a list of dictionaries.
 
@@ -181,3 +182,44 @@ def correct_json_output(outputs: List[str]) -> Dict:
         fixed_outputs.append(parsed_output)
 
     return fixed_outputs
+
+
+def correct_json_output_with_library(outputs: List[str]) -> List[Union[Dict[str, str], str]]:
+    """
+    Attempts to correct a list of malformed JSON strings and returns either the corrected JSON
+    or the original string if correction fails. The function expects a list of strings where each
+    string is a potential JSON output that may require fixing.
+
+    Args:
+        outputs (List[str]): A list of strings, each of which is expected to be a JSON object
+                             in string form. These strings may be malformed and require repair.
+
+    Raises:
+        TypeError: Raised if any element in the input list is not of type `str`.
+
+    Returns:
+        Union[Dict[str, str], str]: A list of corrected JSON outputs, where each corrected output
+                                    is returned as a dictionary. If a string cannot be corrected,
+                                    the original string is returned in place of the dictionary.
+                                    The function returns a list of dictionaries and strings.
+    """
+    if not isinstance(outputs, list):
+        outputs = [outputs]
+
+    corrected_outputs = []
+    for idx, out in enumerate(outputs):
+        # if the output is already a dictionary, skip correction and return dictionary
+        if isinstance(out, dict):
+            corrected_outputs.append(out)
+            continue
+
+        fixed_json = json_repair.loads(out)
+
+        if isinstance(fixed_json, str):
+            # if correction failed, return the original string
+            corrected_outputs.append(outputs[idx])
+        else:
+            # if correction succeeded, return the corrected JSON as dictionary
+            corrected_outputs.append(fixed_json)
+
+    return corrected_outputs

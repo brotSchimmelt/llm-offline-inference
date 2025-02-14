@@ -12,7 +12,13 @@ from pydantic import BaseModel
 
 from .config import LOGGING, PROMPT_FORMATS, SUPPORTED_QUANTIZATION_MODES
 from .generation_params import GenerationParams
-from .utils import correct_json_output, is_valid_json, save_df_to_csv, validate_choice
+from .utils import (
+    correct_json_output,
+    correct_json_output_with_library,
+    is_valid_json,
+    save_df_to_csv,
+    validate_choice,
+)
 
 ##### SETUP LOGGING #####
 if LOGGING["disable_icecream"]:
@@ -154,7 +160,7 @@ class LLM(ABC):
                     JSON, retaining their original string format.
         """
         original_output = model_output.output
-        json_output = correct_json_output(original_output)
+        json_output = correct_json_output_with_library(original_output)
 
         invalid_outputs = []
         for idx, output in enumerate(json_output):
@@ -375,7 +381,8 @@ class LLM(ABC):
         for output_idx, inner_output in enumerate(output):
             for candidate_idx, o in enumerate(inner_output):
                 if json_schema:
-                    if not is_valid_json(o):
+                    x = str(correct_json_output_with_library([o]))
+                    if not is_valid_json(x):
                         malformed.append((output_idx, candidate_idx, o))
                 elif choices:
                     if not validate_choice(o, choices):
@@ -413,9 +420,9 @@ class LLM(ABC):
         unpacked_output = self.unpack_output(outputs)
 
         valid, malformed = self.validate_model_output(unpacked_output, json_schema, choices)
-        if not valid:
-            logger.warning("Invalid model output found. See logs for details.")
-            logger.info(f"Malformed output: {malformed}")
+        # if not valid:
+        # logger.warning("Invalid model output found. See logs for details.")
+        # logger.info(f"Malformed output: {malformed}")
 
         if return_type.lower() == "str":
             return unpacked_output

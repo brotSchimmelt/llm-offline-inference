@@ -54,4 +54,9 @@ PROMPT_FORMATS = {
         "system_prompt_template": "<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n",  # noqa: E501
         "eos_token": "</s>",
     },
+    "phi": {
+        "prompt_template": "<|user|>\n{}<|end|>\n<|assistant|>",
+        "system_prompt_template": "<|system|>\n{system_prompt}<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>",  # noqa: E501
+        "eos_token": "<|end|>",
+    },
 }
