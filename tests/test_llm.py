@@ -1,7 +1,7 @@
 import pytest
 
-from src.flex_infer import GenerationParams, TransformersLLM
-from src.flex_infer.config.settings import TEST_MODEL_SETTINGS
+from llm_offline_inference import GenerationParams, TransformersLLM
+from llm_offline_inference.config.settings import TEST_MODEL_SETTINGS
 
 GENERATION_PARAMS = GenerationParams(temperature=0.1, max_tokens=16, n=2)
 

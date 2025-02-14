@@ -1,5 +1,5 @@
 LOGGING = {
-    "logger_name": "flex_infer",
+    "logger_name": "llm_offline_inference",
     "disable_icecream": False,
 }
 

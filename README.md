@@ -1,28 +1,39 @@
-# Flex-Infer
+# LLM Offline Inference
 
-flex-infer is a comprehensive toolkit for streamlining and simplifying the inference process for LLMs across various models and libraries.
+This is a comprehensive toolkit designed to streamline offline inference for large language models (LLMs). It focuses on processing large batches of prompts efficiently by wrapping popular libraries such as [vLLM](https://github.com/vllm-project/vllm) and Hugging Face [Transformers](https://github.com/huggingface/transformers), and it is built with future extensibility in mind — with plans to integrate additional libraries like [SGLang](https://github.com/sgl-project/sglang).
+
+## Overview
+
+### Key Features
+
+- **Multi-Library Integration:** Seamless support for various LLM inference libraries, enabling you to switch or combine frameworks as needed.
+
+- **Dynamic & Manual Batching:** Optimize throughput with efficient batch processing strategies that allow for both dynamically determined and manually specified batch sizes.
+
+- **Guided Generation:** Leverage advanced guided generation techniques through JSON schemas or regular expression-based choices for more controlled and deterministic outputs with the [outlines](https://github.com/dottxt-ai/outlines) library.
+
+- **Unified Generation Parameters:** Fine-tune generation settings with a unified set of parameters over different libraries to control model behavior.
+
+### Performance and Scalability
+
+Built for high-throughput offline inference, the toolkit's robust batching mechanisms and performance logging ensure efficient processing of large volumes of prompts. Its design focuses on maximizing resource utilization and delivering scalable performance even in resource-intensive scenarios.
 
 ## Installation
 
-Clone the repository to your machine. If you clone it inside your project folder, please remember to adjust your ```.gitignore``` file.
+Install the library with:
 
 ```bash
-git clone https://github.com/brotSchimmelt/flex-infer.git /path/to/flex-infer
+git clone https://github.com/brotSchimmelt/llm-offline-inference.git
+cd llm-offline-inference
+
+pip install -e .
 ```
 
-Install the package with pip in editable mode in a fresh virtual environment.
-
-```bash
-pip install -e /path/to/flex-infer
-```
-
-By installing the package in editable mode, we can easily make changes to the code without re-installing it.
-
-## Example Usage
+## Usage
 
 ```python
 from pydantic import BaseModel
-from flex_infer import VLLM, GenerationParams
+from llm_offline_inference import VLLM, GenerationParams
 
 # initialize the model
 llm = VLLM(
@@ -53,13 +64,6 @@ output = llm.generate(
 # output[0]: { "city": "Reykjavik" }
 ```
 
-## ToDo
+## License
 
-- add support for custom prompt templates in LLM
-- add examples
-  - inference with vllm or transformers
-  - guided inference
-  - custom template
-- add refusal detection with Sentence-Transformers
-- add [tqdm for transformers](https://github.com/huggingface/transformers/issues/14789)
-- add support for Self-Consistency
+This project is licensed under the MIT license.

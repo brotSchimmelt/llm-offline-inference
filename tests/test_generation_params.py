@@ -1,6 +1,6 @@
 import pytest
 
-from src.flex_infer.generation_params import GenerationParams
+from llm_offline_inference.generation_params import GenerationParams
 
 
 def test_valid_initialization():

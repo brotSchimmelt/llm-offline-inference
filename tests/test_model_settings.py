@@ -1,6 +1,6 @@
 import pytest
 
-from src.flex_infer.llm import ModelSettings
+from llm_offline_inference.llm import ModelSettings
 
 PROMPT_FORMATS = ["llama2"]
 SUPPORTED_QUANTIZATION_MODES = ["awq"]

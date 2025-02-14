@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Union
 import json_repair
 import pandas as pd
 
-from flex_infer.config import LOGGING
+from llm_offline_inference.config import LOGGING
 
 logger = logging.getLogger(LOGGING["logger_name"])
 
